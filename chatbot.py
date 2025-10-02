@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (versão completa com debug e fallback)
+Arquivo: chatbot.py (versão corrigida com múltiplas rotas)
 """
 
 from flask import Flask, request, jsonify
@@ -54,50 +54,11 @@ def send_buttons(number, text, footer, buttons):
         
         msg_status = response_data.get('status', 'unknown')
         if msg_status == 'Pending':
-            print("⚠️  Mensagem ficou PENDENTE!")
+            print("⚠️ Mensagem ficou PENDENTE!")
         
         return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar botões: {e}")
-        return None
-
-def send_menu(number, text, footer, button_text, choices):
-    """Envia menu com botões (mantido para compatibilidade)"""
-    url = f"{API_HOST}/send/menu"
-    payload = {
-        "number": number,
-        "type": "list",
-        "text": text,
-        "footerText": footer,
-        "listButton": button_text,
-        "selectableCount": 1,
-        "choices": choices,
-        "readchat": True,
-        "readmessages": True,
-        "delay": 1000
-    }
-    headers = {
-        "Accept": "application/json",
-        "token": API_TOKEN,
-        "Content-Type": "application/json"
-    }
-    
-    print(f"\n📤 ENVIANDO MENU para {number}")
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        response_data = response.json()
-        
-        print(f"✅ Status HTTP: {response.status_code}")
-        print(f"📥 Resposta: {response.text[:200]}...")
-        
-        msg_status = response_data.get('status', 'unknown')
-        if msg_status == 'Pending':
-            print("⚠️  Mensagem ficou PENDENTE!")
-        
-        return response_data
-    except Exception as e:
-        print(f"❌ ERRO ao enviar menu: {e}")
         return None
 
 def send_text(number, text):
@@ -127,7 +88,7 @@ def send_text(number, text):
         
         msg_status = response_data.get('status', 'unknown')
         if msg_status == 'Pending':
-            print("⚠️  Mensagem ficou PENDENTE!")
+            print("⚠️ Mensagem ficou PENDENTE!")
         
         return response_data
     except Exception as e:
@@ -161,7 +122,7 @@ def send_video(number, video_url, caption=""):
         
         msg_status = response_data.get('status', 'unknown')
         if msg_status == 'Pending':
-            print("⚠️  Mensagem ficou PENDENTE!")
+            print("⚠️ Mensagem ficou PENDENTE!")
         
         return response_data
     except Exception as e:
@@ -374,51 +335,80 @@ def processar_mensagem(number, message):
     else:
         iniciar_conversa(number)
 
+def processar_webhook(data):
+    """Função centralizada para processar webhooks"""
+    
+    # Ignora mensagens enviadas pelo próprio bot
+    if data.get('message', {}).get('fromMe'):
+        print("⚠️ IGNORADO - Mensagem enviada pelo bot")
+        return {"status": "ignored - from me"}, 200
+    
+    # Extrai dados
+    message_data = data.get('message', {})
+    number = message_data.get('sender', '').replace('@s.whatsapp.net', '')
+    message_text = message_data.get('text', '') or message_data.get('content', '')
+    button_choice = message_data.get('buttonOrListid', '')
+    
+    print(f"📱 Número extraído: '{number}'")
+    print(f"💬 Texto extraído: '{message_text}'")
+    print(f"🔘 Botão extraído: '{button_choice}'")
+    
+    if number and (message_text or button_choice):
+        final_message = button_choice if button_choice else message_text
+        print(f"🚀 PROCESSANDO: '{final_message}'")
+        processar_mensagem(number, final_message)
+        return {"status": "success"}, 200
+    
+    print("❌ ERRO - Dados incompletos ou inválidos")
+    return {"error": "Dados incompletos"}, 400
+
 # ==================== ROTAS ====================
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """Recebe mensagens via webhook"""
+    """Recebe mensagens via webhook - rota principal"""
     try:
         data = request.json
         
         print("\n" + "="*60)
-        print(f"🔔 WEBHOOK RECEBIDO em {datetime.now()}")
+        print(f"📨 WEBHOOK RECEBIDO em {datetime.now()}")
+        print(f"🔗 ROTA: /webhook")
         print("="*60)
         
-        # LOG COMPLETO DOS DADOS RECEBIDOS
-        print("📦 DADOS BRUTOS RECEBIDOS:")
+        # LOG COMPLETO DOS DADOS
         import json
+        print("📦 DADOS RECEBIDOS:")
         print(json.dumps(data, indent=2, ensure_ascii=False)[:1000])
         print("="*60)
         
-        # Ignora mensagens enviadas pelo próprio bot
-        if data.get('message', {}).get('fromMe'):
-            print("⚠️ IGNORADO - Mensagem enviada pelo bot")
-            return jsonify({"status": "ignored - from me"}), 200
+        result, status_code = processar_webhook(data)
+        return jsonify(result), status_code
+    
+    except Exception as e:
+        print(f"\n❌ ERRO CRÍTICO: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/webhook/text', methods=['POST'])
+def webhook_text():
+    """Recebe mensagens via webhook - rota alternativa /text"""
+    try:
+        data = request.json
         
-        # Extrai dados
-        message_data = data.get('message', {})
-        number = message_data.get('sender', '').replace('@s.whatsapp.net', '')
-        message_text = message_data.get('text', '') or message_data.get('content', '')
-        button_choice = message_data.get('buttonOrListid', '')
+        print("\n" + "="*60)
+        print(f"📨 WEBHOOK RECEBIDO em {datetime.now()}")
+        print(f"🔗 ROTA: /webhook/text")
+        print("="*60)
         
-        print(f"📱 Número extraído: '{number}'")
-        print(f"💬 Texto extraído: '{message_text}'")
-        print(f"🔘 Botão extraído: '{button_choice}'")
-        print(f"✅ Tem número? {bool(number)}")
-        print(f"✅ Tem mensagem/botão? {bool(message_text or button_choice)}")
+        # LOG COMPLETO DOS DADOS
+        import json
+        print("📦 DADOS RECEBIDOS:")
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:1000])
+        print("="*60)
         
-        if number and (message_text or button_choice):
-            final_message = button_choice if button_choice else message_text
-            print(f"🚀 PROCESSANDO: '{final_message}'")
-            processar_mensagem(number, final_message)
-            return jsonify({"status": "success"}), 200
-        
-        print("❌ ERRO - Dados incompletos ou inválidos")
-        print(f"   - Número válido? {bool(number)}")
-        print(f"   - Mensagem válida? {bool(message_text or button_choice)}")
-        return jsonify({"error": "Dados incompletos"}), 400
+        result, status_code = processar_webhook(data)
+        return jsonify(result), status_code
     
     except Exception as e:
         print(f"\n❌ ERRO CRÍTICO: {e}")
@@ -438,7 +428,7 @@ def testar_texto(number):
     """Testa envio de texto simples"""
     print(f"\n🧪 TESTE DE TEXTO SIMPLES para {number}")
     
-    # Remove caracteres especiais se tiver
+    # Remove caracteres especiais
     number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
     print(f"📱 Número limpo: {number_clean}")
     
@@ -457,27 +447,49 @@ def health():
         "status": "online",
         "usuarios_ativos": len(user_states),
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
+        "rotas_disponiveis": ["/webhook", "/webhook/text", "/test/<number>", "/health"],
         "timestamp": datetime.now().isoformat()
+    })
+
+@app.route('/', methods=['GET'])
+def home():
+    """Página inicial"""
+    return jsonify({
+        "bot": "99Food Chatbot",
+        "status": "online",
+        "versao": "2.0",
+        "rotas": {
+            "webhook_principal": "/webhook",
+            "webhook_alternativo": "/webhook/text",
+            "teste": "/test/<numero>",
+            "teste_texto": "/test-text/<numero>",
+            "health": "/health"
+        }
     })
 
 # ==================== EXECUÇÃO ====================
 
 if __name__ == '__main__':
     print("""
-    ╔═══════════════════════════════════════╗
+    ╔════════════════════════════════════════╗
     🤖 CHATBOT 99FOOD - UAZAPIGO V2
-    ╚═══════════════════════════════════════╝
+    ╚════════════════════════════════════════╝
     
     ✅ Servidor rodando!
     
     📡 Endpoints:
-    • POST /webhook - Recebe mensagens
+    • POST /webhook - Recebe mensagens (principal)
+    • POST /webhook/text - Recebe mensagens (alternativo)
     • GET  /test/<numero> - Testa bot
     • GET  /test-text/<numero> - Teste simples
     • GET  /health - Status
+    • GET  / - Página inicial
     
-    🔧 Configure webhook: http://seu-ip:5000/webhook
-    ╚═══════════════════════════════════════╝
+    🔧 Configure webhook: 
+       https://seu-dominio.com/webhook
+       OU
+       https://seu-dominio.com/webhook/text
+    ╚════════════════════════════════════════╝
     """)
     
     # Valida configuração
