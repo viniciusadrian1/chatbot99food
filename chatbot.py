@@ -416,6 +416,58 @@ def nao_deu_certo_tutorial(number):
 
 # ==================== PROCESSAMENTO ====================
 
+def verificar_pergunta_cupom(message):
+    """Verifica se a mensagem é uma pergunta sobre o cupom"""
+    msg = message.upper().strip()
+    
+    palavras_chave_cupom = [
+        "QUAL CUPOM",
+        "QUAL O CUPOM",
+        "QUAL É O CUPOM",
+        "QUAL E O CUPOM",
+        "NOME DO CUPOM",
+        "MEU CUPOM",
+        "ME DA CUPOM",
+        "ME DÁ CUPOM",
+        "QUERO CUPOM",
+        "QUERO O CUPOM",
+        "ME FALE CUPOM",
+        "ME FALA CUPOM",
+        "CUPOM QUAL",
+        "CODIGO DO CUPOM",
+        "CÓDIGO DO CUPOM"
+    ]
+    
+    # Verifica se alguma palavra-chave está na mensagem
+    for palavra in palavras_chave_cupom:
+        if palavra in msg:
+            return True
+    
+    return False
+
+def responder_cupom_direto(number):
+    """Responde diretamente com o cupom quando perguntado"""
+    print(f"🎫 RESPONDENDO CUPOM DIRETO para {number}")
+    
+    mensagem = f"""🎁 *Seu cupom exclusivo:*
+
+🎫 *{CUPOM_DESCONTO}*
+
+💡 *Como usar:*
+1. Abra o app 99Food
+2. Escolha seu pedido
+3. Na tela de pagamento, procure "Cupom"
+4. Cole o cupom: *{CUPOM_DESCONTO}*
+5. Aproveite o desconto! 🚀
+
+📹 *Precisa de ajuda?* Digite qualquer coisa e te envio um tutorial em vídeo!"""
+    
+    send_text(number, mensagem)
+    
+    # Define estado para caso queira tutorial
+    user_states[number] = "AGUARDANDO_CONFIRMACAO_TUTORIAL"
+    print(f"   ✅ Estado definido: AGUARDANDO_CONFIRMACAO_TUTORIAL")
+
 def processar_mensagem(number, message):
     """Processa mensagens e gerencia fluxo COM CONFIRMAÇÕES"""
     
@@ -429,6 +481,12 @@ def processar_mensagem(number, message):
     print(f"💬 Mensagem recebida: '{message}'")
     print(f"🔍 Mensagem normalizada: '{msg}'")
     print(f"{'='*60}")
+    
+    # ⭐ NOVA VERIFICAÇÃO: Pergunta sobre cupom (funciona em qualquer estado)
+    if verificar_pergunta_cupom(message):
+        print("   🎫 DETECTADO: Pergunta sobre cupom!")
+        responder_cupom_direto(number)
+        return
     
     # INÍCIO DA CONVERSA
     if estado_atual == "INICIO" or number not in user_states:
@@ -728,6 +786,36 @@ def testar_ja_usou(number):
         "mensagem": "Verifique se recebeu a orientação! Ele vai aguardar você confirmar antes de enviar o cupom."
     })
 
+@app.route('/test-pergunta-cupom/<number>', methods=['GET'])
+def testar_pergunta_cupom(number):
+    """Testa detecção de perguntas sobre cupom"""
+    print(f"\n🧪 TESTE DE PERGUNTA SOBRE CUPOM para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    # Simula algumas perguntas
+    perguntas_teste = [
+        "Qual o meu cupom?",
+        "Me da meu cupom",
+        "Qual cupom posso usar?",
+        "Quero o cupom"
+    ]
+    
+    print(f"\n📋 Testando detecção de perguntas:")
+    for pergunta in perguntas_teste:
+        detectado = verificar_pergunta_cupom(pergunta)
+        print(f"   • '{pergunta}' → {'✅ DETECTADO' if detectado else '❌ NÃO DETECTADO'}")
+    
+    # Envia resposta real
+    responder_cupom_direto(number_clean)
+    
+    return jsonify({
+        "status": "Teste enviado",
+        "number": number_clean,
+        "perguntas_testadas": perguntas_teste,
+        "mensagem": "Verifique se recebeu o cupom! A função está ativa para qualquer pergunta sobre cupom."
+    })
+
 @app.route('/check-video', methods=['GET'])
 def check_video():
     """Verifica se a URL do vídeo está acessível"""
@@ -807,6 +895,7 @@ def health():
             "/test-video/<number>",
             "/test-cupom/<number>",
             "/test-ja-usou/<number>",
+            "/test-pergunta-cupom/<number>",
             "/check-video",
             "/reset/<number>",
             "/health"
@@ -831,6 +920,7 @@ def home():
             "teste_video": "/test-video/<numero>",
             "teste_cupom": "/test-cupom/<numero>",
             "teste_ja_usou": "/test-ja-usou/<numero>",
+            "teste_pergunta_cupom": "/test-pergunta-cupom/<numero>",
             "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
             "health_check": "/health"
@@ -857,7 +947,15 @@ def home():
         "novos_estados": [
             "AGUARDANDO_CONFIRMACAO_NOVA_CONTA - Aguarda usuário confirmar que vai criar nova conta",
             "AGUARDANDO_CONFIRMACAO_TUTORIAL - Aguarda usuário confirmar que quer ver o tutorial"
-        ]
+        ],
+        "nova_funcionalidade": {
+            "deteccao_perguntas_cupom": "Bot detecta perguntas sobre cupom e responde automaticamente",
+            "palavras_chave": [
+                "qual cupom", "qual o cupom", "nome do cupom", "meu cupom", 
+                "me da cupom", "quero cupom", "me fale cupom", "codigo do cupom"
+            ],
+            "funciona_em": "Qualquer estado da conversa"
+        }
     })
 
 # ==================== EXECUÇÃO ====================
@@ -882,6 +980,7 @@ if __name__ == '__main__':
     • GET  /test-video/<numero> - Testa vídeo
     • GET  /test-cupom/<numero> - Testa envio de cupom
     • GET  /test-ja-usou/<numero> - Testa fluxo "já usei cupom"
+    • GET  /test-pergunta-cupom/<numero> - Testa detecção de perguntas sobre cupom
     • GET  /check-video - Verifica URL do vídeo
     • GET  /reset/<numero> - Reseta estado
     • GET  /health - Status detalhado
@@ -937,6 +1036,15 @@ if __name__ == '__main__':
     ✅ Não envia mensagens em sequência
     ✅ Logs mostram pausas entre etapas
     ✅ Estados limpos ao finalizar conversa
+    
+    🆕 NOVA FUNCIONALIDADE:
+    ✅ Detecção automática de perguntas sobre cupom
+    ✅ Responde instantaneamente quando perguntam sobre o cupom
+    ✅ Palavras-chave detectadas:
+       • "Qual cupom", "Qual o cupom", "Nome do cupom"
+       • "Meu cupom", "Me da cupom", "Quero cupom"
+       • "Me fale cupom", "Código do cupom"
+    ✅ Funciona em QUALQUER estado da conversa
     
     ╚═══════════════════════════════════════════════════════════╝
     """)
