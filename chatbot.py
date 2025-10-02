@@ -286,28 +286,41 @@ def webhook():
     try:
         data = request.json
         
-        # LOG: Mostra TODOS os dados recebidos
+        # LOG: Mostra dados recebidos
         print("=" * 50)
         print(f"[WEBHOOK RECEBIDO] {datetime.now()}")
-        print(f"Dados completos: {data}")
+        
+        # Ignora mensagens enviadas pelo próprio bot
+        if data.get('message', {}).get('fromMe'):
+            print("[IGNORADO] Mensagem enviada pelo bot")
+            return jsonify({"status": "ignored - from me"}), 200
+        
+        # Extrai dados corretos da estrutura uazapiGO
+        message_data = data.get('message', {})
+        chat_data = data.get('chat', {})
+        
+        # Número do remetente
+        number = message_data.get('sender', '').replace('@s.whatsapp.net', '')
+        
+        # Texto da mensagem
+        message_text = message_data.get('text', '') or message_data.get('content', '')
+        
+        # ID da escolha do botão/lista
+        button_choice = message_data.get('buttonOrListid', '')
+        
+        print(f"Número: {number}")
+        print(f"Mensagem: {message_text}")
+        print(f"Botão escolhido: {button_choice}")
         print("=" * 50)
         
-        # Extrai número e mensagem (ajuste conforme seu webhook)
-        number = data.get('from') or data.get('number', '').replace('@s.whatsapp.net', '')
-        message = data.get('message') or data.get('text') or data.get('body', '')
-        
-        print(f"Número extraído: {number}")
-        print(f"Mensagem extraída: {message}")
-        
-        if number and message:
-            processar_mensagem(number, message)
+        if number and (message_text or button_choice):
+            # Usa o ID do botão se existir, senão usa o texto
+            final_message = button_choice if button_choice else message_text
+            processar_mensagem(number, final_message)
             return jsonify({"status": "success"}), 200
         
-        print("[ERRO] Dados incompletos - número ou mensagem vazio")
-        return jsonify({
-            "error": "Dados incompletos",
-            "received": data
-        }), 400
+        print("[ERRO] Dados incompletos")
+        return jsonify({"error": "Dados incompletos"}), 400
     
     except Exception as e:
         print(f"[ERRO CRÍTICO] {e}")
