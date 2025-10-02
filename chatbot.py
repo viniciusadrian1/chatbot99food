@@ -320,6 +320,12 @@ def webhook():
         print(f"🔔 WEBHOOK RECEBIDO em {datetime.now()}")
         print("="*60)
         
+        # LOG COMPLETO DOS DADOS RECEBIDOS
+        print("📦 DADOS BRUTOS RECEBIDOS:")
+        import json
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        print("="*60)
+        
         # Ignora mensagens enviadas pelo próprio bot
         if data.get('message', {}).get('fromMe'):
             print("⚠️ IGNORADO - Mensagem enviada pelo bot")
@@ -331,16 +337,21 @@ def webhook():
         message_text = message_data.get('text', '') or message_data.get('content', '')
         button_choice = message_data.get('buttonOrListid', '')
         
-        print(f"📱 Número: {number}")
-        print(f"💬 Texto: {message_text}")
-        print(f"🔘 Botão: {button_choice}")
+        print(f"📱 Número extraído: '{number}'")
+        print(f"💬 Texto extraído: '{message_text}'")
+        print(f"🔘 Botão extraído: '{button_choice}'")
+        print(f"✅ Tem número? {bool(number)}")
+        print(f"✅ Tem mensagem/botão? {bool(message_text or button_choice)}")
         
         if number and (message_text or button_choice):
             final_message = button_choice if button_choice else message_text
+            print(f"🚀 PROCESSANDO: '{final_message}'")
             processar_mensagem(number, final_message)
             return jsonify({"status": "success"}), 200
         
-        print("❌ ERRO - Dados incompletos")
+        print("❌ ERRO - Dados incompletos ou inválidos")
+        print(f"   - Número válido? {bool(number)}")
+        print(f"   - Mensagem válida? {bool(message_text or button_choice)}")
         return jsonify({"error": "Dados incompletos"}), 400
     
     except Exception as e:
