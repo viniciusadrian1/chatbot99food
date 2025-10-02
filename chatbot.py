@@ -114,16 +114,13 @@ def iniciar_conversa(number):
     user_states[number] = "AGUARDANDO_TEM_APP"
 
 def nao_tem_app(number):
-    """Envia links para download"""
+    """Envia link para download"""
     mensagem = f"""📲 *Sem problemas!*
 
-Baixe o app da 99Food:
+Baixe o app da 99Food agora:
 
-🤖 *Android:*
-{LINK_PLAY_STORE}
-
-🍎 *iPhone:*
-{LINK_APP_STORE}
+🔗 *Link do app:*
+{LINK_APP_99FOOD}
 
 Após instalar, volte aqui! 😊"""
     
@@ -289,18 +286,33 @@ def webhook():
     try:
         data = request.json
         
+        # LOG: Mostra TODOS os dados recebidos
+        print("=" * 50)
+        print(f"[WEBHOOK RECEBIDO] {datetime.now()}")
+        print(f"Dados completos: {data}")
+        print("=" * 50)
+        
         # Extrai número e mensagem (ajuste conforme seu webhook)
         number = data.get('from') or data.get('number', '').replace('@s.whatsapp.net', '')
         message = data.get('message') or data.get('text') or data.get('body', '')
+        
+        print(f"Número extraído: {number}")
+        print(f"Mensagem extraída: {message}")
         
         if number and message:
             processar_mensagem(number, message)
             return jsonify({"status": "success"}), 200
         
-        return jsonify({"error": "Dados incompletos"}), 400
+        print("[ERRO] Dados incompletos - número ou mensagem vazio")
+        return jsonify({
+            "error": "Dados incompletos",
+            "received": data
+        }), 400
     
     except Exception as e:
-        print(f"[ERRO] {e}")
+        print(f"[ERRO CRÍTICO] {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route('/test/<number>', methods=['GET'])
