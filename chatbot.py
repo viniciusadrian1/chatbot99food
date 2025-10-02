@@ -268,7 +268,7 @@ def tem_app(number):
     """Pergunta sobre cupom"""
     result = send_buttons(
         number=number,
-        text="🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?",
+        text="🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto no 99Food?",
         footer="Chatbot 99Food",
         buttons=[
             {"id": "JA_USEI", "text": "✅ Sim, já usei"},
@@ -278,11 +278,85 @@ def tem_app(number):
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!")
+        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!")
     
     user_states[number] = "AGUARDANDO_CUPOM"
 
-def enviar_cupom(number):
+def ja_usou_cupom(number):
+    """Orienta usuário que já usou cupom a criar nova conta"""
+    print(f"🔄 ORIENTANDO sobre NOVA CONTA para {number}")
+    
+    mensagem = f"""💡 *Entendi!*
+
+Esse cupom é *exclusivo para primeira compra* no app 99Food! 🎁
+
+📱 *Mas tenho uma solução para você:*
+
+Você pode criar uma *nova conta* com outro número ou email diferente e usar o cupom! 
+
+✅ *Como fazer:*
+1. Faça logout da sua conta atual
+2. Cadastre com novo email/número
+3. Use o cupom na primeira compra
+
+Quer que eu te envie o cupom agora?"""
+    
+    send_text(number, mensagem)
+    
+    # Aguarda 2 segundos
+    import time
+    time.sleep(2)
+    
+    result = send_buttons(
+        number=number,
+        text="📲 Quer receber o cupom para usar na nova conta?",
+        footer="Chatbot 99Food",
+        buttons=[
+            {"id": "QUERO_CUPOM_NOVA", "text": "✅ Sim, quero!"},
+            {"id": "NAO_QUERO_AGORA", "text": "⏰ Não, obrigado"}
+        ]
+    )
+    
+    if not result or result.get('status') == 'Pending':
+        send_text(number, "📲 Quer receber o cupom para usar na nova conta?\n\n1️⃣ - Sim, quero!\n2️⃣ - Não, obrigado")
+    
+    user_states[number] = "AGUARDANDO_NOVA_CONTA"
+
+def enviar_cupom_nova_conta(number):
+    """Envia cupom para quem vai criar nova conta e pergunta sobre tutorial"""
+    print(f"🎁 ENVIANDO CUPOM (nova conta) para {number}")
+    
+    mensagem = f"""🎁 *Aqui está seu cupom exclusivo!*
+
+🎫 *{CUPOM_DESCONTO}*
+
+💡 *Lembre-se:*
+• Crie uma nova conta primeiro
+• Use um email/número diferente
+• Cole o cupom antes de finalizar o pedido
+
+📹 *Quer um tutorial em vídeo* de como usar o cupom?"""
+    
+    send_text(number, mensagem)
+    
+    # Aguarda 2 segundos antes de enviar os botões
+    import time
+    time.sleep(2)
+    
+    result = send_buttons(
+        number=number,
+        text="📺 Quer assistir o tutorial em vídeo?",
+        footer="Chatbot 99Food",
+        buttons=[
+            {"id": "QUERO_TUTORIAL", "text": "✅ Sim, quero ver!"},
+            {"id": "NAO_PRECISA", "text": "❌ Não precisa"}
+        ]
+    )
+    
+    if not result or result.get('status') == 'Pending':
+        send_text(number, "📺 Quer assistir o tutorial em vídeo?\n\n1️⃣ - Sim, quero ver!\n2️⃣ - Não precisa")
+    
+    user_states[number] = "AGUARDANDO_QUER_TUTORIAL"
     """Envia o cupom de desconto para o usuário"""
     print(f"🎁 ENVIANDO CUPOM para {number}")
     
@@ -459,8 +533,8 @@ def processar_mensagem(number, message):
         print(f"   → Verificando uso de cupom...")
         
         if "JA" in msg or "JÁ" in msg or msg == "1":
-            print("   → Ação: Usuário JÁ USOU cupom")
-            enviar_grupo(number)
+            print("   → Ação: Usuário JÁ USOU cupom - orientando sobre nova conta")
+            ja_usou_cupom(number)
         elif "NAO" in msg or "NÃO" in msg or msg == "2":
             print("   → Ação: Usuário NUNCA USOU cupom")
             enviar_tutorial(number)
@@ -473,6 +547,48 @@ def processar_mensagem(number, message):
                 number,
                 "🤔 Não entendi.\n\nVocê já usou cupom no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!"
             )
+        return
+    
+    elif estado_atual == "AGUARDANDO_NOVA_CONTA":
+        print(f"   → Verificando se quer cupom para nova conta...")
+        
+        if "QUERO" in msg or msg == "1":
+            print("   → Ação: Usuário QUER cupom para nova conta")
+            enviar_cupom_nova_conta(number)
+        else:
+            print("   → Ação: Usuário não quer agora")
+            send_text(number, "😊 Tudo bem! Quando quiser criar a nova conta, me chame! Até logo! 👋")
+            if number in user_states:
+                del user_states[number]
+        return
+    
+    elif estado_atual == "AGUARDANDO_QUER_TUTORIAL":
+        print(f"   → Verificando se quer assistir tutorial...")
+        
+        if "QUERO" in msg or msg == "1" or "SIM" in msg:
+            print("   → Ação: Usuário QUER ver o tutorial")
+            enviar_tutorial(number)
+        else:
+            print("   → Ação: Usuário NÃO precisa do tutorial - enviando para grupo")
+            mensagem = f"""✅ *Perfeito!*
+
+Você já sabe como usar o cupom! 🎉
+
+💰 *Quer mais ofertas e cupons exclusivos?*
+
+Entre no nosso grupo VIP:
+• 🎁 Cupons diários
+• 🔥 Ofertas relâmpago
+• 💸 Descontos até 70%
+
+👥 *Link do grupo:*
+{LINK_GRUPO_OFERTAS}
+
+Aproveite! 🚀"""
+            
+            send_text(number, mensagem)
+            if number in user_states:
+                del user_states[number]
         return
     
     elif estado_atual == "AGUARDANDO_RESULTADO":
@@ -671,6 +787,30 @@ def testar_cupom(number):
         "mensagem": "Verifique se recebeu o cupom e o tutorial!"
     })
 
+@app.route('/test-ja-usou/<number>', methods=['GET'])
+def testar_ja_usou(number):
+    """Testa fluxo de quem já usou cupom"""
+    print(f"\n🧪 TESTE FLUXO JÁ USOU CUPOM para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    # Limpa estado anterior
+    if number_clean in user_states:
+        del user_states[number_clean]
+    
+    # Simula que chegou na pergunta sobre cupom
+    user_states[number_clean] = "AGUARDANDO_CUPOM"
+    
+    # Processa como se tivesse respondido "já usei"
+    processar_mensagem(number_clean, "JA_USEI")
+    
+    return jsonify({
+        "status": "Iniciado",
+        "number": number_clean,
+        "fluxo": "ja_usou_cupom",
+        "mensagem": "Verifique se recebeu a orientação sobre criar nova conta!"
+    })
+
 @app.route('/check-video', methods=['GET'])
 def check_video():
     """Verifica se a URL do vídeo está acessível"""
@@ -746,6 +886,7 @@ def health():
             "/test-buttons/<number>",
             "/test-video/<number>",
             "/test-cupom/<number>",
+            "/test-ja-usou/<number>",
             "/check-video",
             "/reset/<number>",
             "/health"
@@ -759,7 +900,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.1-cupom-corrigido",
+        "versao": "3.2-fluxo-completo",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -769,6 +910,7 @@ def home():
             "teste_botoes": "/test-buttons/<numero>",
             "teste_video": "/test-video/<numero>",
             "teste_cupom": "/test-cupom/<numero>",
+            "teste_ja_usou": "/test-ja-usou/<numero>",
             "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
             "health_check": "/health"
@@ -782,7 +924,9 @@ def home():
             "cupom": CUPOM_DESCONTO
         },
         "fluxo_corrigido": {
-            "opcao_3": "Agora envia cupom + tutorial quando usuário escolhe 'Quero um cupom!'"
+            "opcao_1_ja_usei": "Orienta a criar nova conta → Envia cupom → Pergunta se quer tutorial → Envia vídeo (se sim) → Grupo VIP",
+            "opcao_2_nunca_usei": "Envia tutorial direto → Pergunta se conseguiu → Grupo VIP",
+            "opcao_3_quero_cupom": "Envia cupom + tutorial automaticamente → Pergunta se conseguiu → Grupo VIP"
         }
     })
 
@@ -791,12 +935,13 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔═══════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - UAZAPIGO V3.1 CORRIGIDO
+    🤖 CHATBOT 99FOOD - UAZAPIGO V3.2 COMPLETO
     ╚═══════════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
     ✅ Envio de vídeo CORRIGIDO (formato Uazapi)
-    ✅ CORREÇÃO: Opção 3 agora envia CUPOM + TUTORIAL!
+    ✅ NOVO: Fluxo para quem já usou cupom!
+    ✅ NOVO: Orientação para criar nova conta!
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -806,6 +951,7 @@ if __name__ == '__main__':
     • GET  /test-buttons/<numero> - Testa botões
     • GET  /test-video/<numero> - Testa vídeo
     • GET  /test-cupom/<numero> - Testa envio de cupom
+    • GET  /test-ja-usou/<numero> - Testa fluxo "já usei cupom"
     • GET  /check-video - Verifica URL do vídeo
     • GET  /reset/<numero> - Reseta estado
     • GET  /health - Status detalhado
@@ -819,22 +965,33 @@ if __name__ == '__main__':
     
     🎁 Cupom: """ + CUPOM_DESCONTO + """
     
-    📝 Fluxo do bot:
-    1. Usuário manda qualquer mensagem → Bot inicia conversa
-    2. Pergunta se tem o app instalado
-    3. Pergunta se já usou cupom
-       • Opção 1 (Já usei) → Envia grupo VIP
-       • Opção 2 (Nunca usei) → Envia tutorial
-       • Opção 3 (Quero cupom!) → Envia CUPOM + TUTORIAL ✅
-    4. Após tutorial, pergunta se conseguiu usar
-    5. Finaliza com grupo de ofertas
+    📝 Fluxo COMPLETO do bot:
     
-    🎥 CORREÇÃO APLICADA - OPÇÃO 3:
-    ✅ Quando usuário escolhe "Quero um cupom!":
-       1. Envia mensagem com o cupom destacado
-       2. Explica como usar o cupom
-       3. Continua automaticamente para o tutorial em vídeo
-       4. Pergunta se conseguiu usar após o vídeo
+    1️⃣ *OPÇÃO 1 - JÁ USEI CUPOM:*
+       → Orienta a criar nova conta (outro email/número)
+       → Pergunta se quer receber o cupom
+       → Envia cupom
+       → Pergunta se quer ver tutorial
+       → Se SIM: Envia vídeo → Pergunta resultado → Grupo VIP
+       → Se NÃO: Envia direto para Grupo VIP
+    
+    2️⃣ *OPÇÃO 2 - NUNCA USEI:*
+       → Envia tutorial em vídeo direto
+       → Pergunta se conseguiu usar
+       → Envia Grupo VIP
+    
+    3️⃣ *OPÇÃO 3 - QUERO UM CUPOM:*
+       → Envia cupom formatado
+       → Envia tutorial em vídeo automaticamente
+       → Pergunta se conseguiu usar
+       → Envia Grupo VIP
+    
+    🎯 NOVA FUNCIONALIDADE:
+    ✅ Detecta se usuário já usou cupom
+    ✅ Orienta sobre criar nova conta
+    ✅ Explica que cupom é para primeira compra
+    ✅ Oferece tutorial opcional
+    ✅ Segue fluxo normal até o grupo VIP
     
     ╚═══════════════════════════════════════════╝
     """)
