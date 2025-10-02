@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (VERSÃO COMPLETA E ATUALIZADA)
+Arquivo: chatbot.py (VERSÃO COMPLETA E FINAL - ATUALIZADA)
 """
 
 from flask import Flask, request, jsonify
@@ -13,7 +13,7 @@ API_HOST = os.getenv('API_HOST', 'https://99food.uazapi.com')
 API_TOKEN = os.getenv('API_TOKEN', 'SEU_TOKEN_AQUI')
 
 LINK_APP_99FOOD = os.getenv('LINK_APP_99FOOD', 'https://seu-link-unico-aqui.com')
-VIDEO_TUTORIAL_URL = os.getenv('VIDEO_TUTORIAL_URL', 'https://exemplo.com/tutorial.mp4')
+VIDEO_TUTORIAL_URL = os.getenv('VIDEO_TUTORIAL_URL', 'https://drive.google.com/uc?export=download&id=1MrJfG477mSjmiJmx9o_zvzd-X7SI3Vt1')
 LINK_GRUPO_OFERTAS = os.getenv('LINK_GRUPO_OFERTAS', 'https://chat.whatsapp.com/seu-link-grupo')
 
 PORT = int(os.getenv('PORT', 5000))
@@ -83,15 +83,28 @@ def send_text(number, text):
 def send_buttons(number, text, footer, buttons):
     """Envia mensagem com botões simples"""
     url = f"{API_HOST}/send/buttons"
+    
+    # Formata os botões corretamente para uazapi
+    formatted_buttons = []
+    for btn in buttons:
+        formatted_buttons.append({
+            "buttonId": btn["id"],
+            "buttonText": {
+                "displayText": btn["text"]
+            },
+            "type": 1
+        })
+    
     payload = {
         "number": number,
-        "text": text,
-        "footerText": footer,
-        "buttons": buttons,
-        "readchat": True,
-        "readmessages": True,
-        "delay": 1000
+        "buttonMessage": {
+            "text": text,
+            "footerText": footer,
+            "buttons": formatted_buttons,
+            "headerType": 1
+        }
     }
+    
     headers = {
         "Accept": "application/json",
         "token": API_TOKEN,
@@ -100,6 +113,7 @@ def send_buttons(number, text, footer, buttons):
     
     print(f"\n📤 ENVIANDO BOTÕES para {number}")
     print(f"🔑 Token: {API_TOKEN[:10]}...{API_TOKEN[-5:]}")
+    print(f"📦 Payload: {payload}")
     
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
@@ -112,25 +126,101 @@ def send_buttons(number, text, footer, buttons):
         msg_status = response_data.get('status', 'unknown')
         
         if msg_status == 'Pending' or response.status_code != 200:
-            print(f"   ⚠️ FALHA nos botões - Usando texto simples como fallback")
-            return None
+            print(f"   ⚠️ FALHA nos botões - Tentando formato de lista...")
+            return send_list(number, text, footer, buttons)
             
+        print(f"   ✅ Botões enviados com sucesso!")
         return response_data
     except Exception as e:
         print(f"   ❌ ERRO ao enviar botões: {e}")
+        import traceback
+        traceback.print_exc()
+        return send_list(number, text, footer, buttons)
+
+def send_list(number, text, footer, buttons):
+    """Envia lista interativa (fallback para botões)"""
+    url = f"{API_HOST}/send/list"
+    
+    # Converte botões para formato de lista
+    rows = []
+    for btn in buttons:
+        rows.append({
+            "title": btn["text"],
+            "rowId": btn["id"],
+            "description": ""
+        })
+    
+    payload = {
+        "number": number,
+        "listMessage": {
+            "text": text,
+            "footerText": footer,
+            "title": "Escolha uma opção",
+            "buttonText": "Ver opções",
+            "sections": [
+                {
+                    "title": "Opções disponíveis",
+                    "rows": rows
+                }
+            ]
+        }
+    }
+    
+    headers = {
+        "Accept": "application/json",
+        "token": API_TOKEN,
+        "Content-Type": "application/json"
+    }
+    
+    print(f"\n📋 ENVIANDO LISTA para {number}")
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        print(f"\n📊 RESPOSTA DA API (LISTA):")
+        print(f"   Status HTTP: {response.status_code}")
+        print(f"   Resposta: {response.text[:300]}")
+        
+        response_data = response.json()
+        
+        if response.status_code == 200:
+            print(f"   ✅ Lista enviada com sucesso!")
+            return response_data
+        else:
+            print(f"   ⚠️ Lista também falhou - usando texto simples")
+            return None
+            
+    except Exception as e:
+        print(f"   ❌ ERRO ao enviar lista: {e}")
         return None
 
 def send_video(number, video_url, caption=""):
     """Envia vídeo como mídia"""
     url = f"{API_HOST}/send/video"
-    payload = {
-        "number": number,
-        "video": video_url,
-        "caption": caption,
-        "readchat": True,
-        "readmessages": True,
-        "delay": 1000
-    }
+    
+    # Tenta diferentes formatos de payload
+    payloads_to_try = [
+        # Formato 1: media
+        {
+            "number": number,
+            "media": video_url,
+            "caption": caption
+        },
+        # Formato 2: video
+        {
+            "number": number,
+            "video": video_url,
+            "caption": caption
+        },
+        # Formato 3: url
+        {
+            "number": number,
+            "url": video_url,
+            "caption": caption,
+            "mimetype": "video/mp4"
+        }
+    ]
+    
     headers = {
         "Accept": "application/json",
         "token": API_TOKEN,
@@ -138,17 +228,35 @@ def send_video(number, video_url, caption=""):
     }
     
     print(f"\n📤 ENVIANDO VÍDEO para {number}")
+    print(f"🎬 URL do vídeo: {video_url}")
     
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        response_data = response.json()
-        
-        print(f"   Status HTTP: {response.status_code}")
-        
-        return response_data
-    except Exception as e:
-        print(f"   ❌ ERRO ao enviar vídeo: {e}")
-        return None
+    # Tenta cada formato até funcionar
+    for i, payload in enumerate(payloads_to_try, 1):
+        try:
+            print(f"\n🔄 Tentativa {i}/3 com payload: {list(payload.keys())}")
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=20)
+            
+            print(f"\n📊 RESPOSTA DA API (VÍDEO - Tentativa {i}):")
+            print(f"   Status HTTP: {response.status_code}")
+            print(f"   Resposta: {response.text[:300]}")
+            
+            response_data = response.json()
+            
+            if response.status_code == 200 and response_data.get('status') != 'error':
+                print(f"   ✅ Vídeo enviado com sucesso no formato {i}!")
+                return response_data
+            else:
+                print(f"   ⚠️ Formato {i} não funcionou, tentando próximo...")
+                
+        except Exception as e:
+            print(f"   ❌ ERRO na tentativa {i}: {e}")
+            continue
+    
+    # Se nenhum formato funcionar, envia link como texto
+    print(f"\n⚠️ Nenhum formato de vídeo funcionou, enviando link como texto...")
+    send_text(number, f"🎬 Assista o tutorial aqui:\n{video_url}")
+    return {"status": "sent_as_link"}
 
 # ==================== FLUXO DO CHATBOT ====================
 
@@ -501,6 +609,94 @@ def testar_texto(number):
         "token_configurado": API_TOKEN != 'SEU_TOKEN_AQUI'
     })
 
+@app.route('/test-buttons/<number>', methods=['GET'])
+def testar_botoes(number):
+    """Testa envio de botões diretamente"""
+    print(f"\n🧪 TESTE DE BOTÕES para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    result = send_buttons(
+        number=number_clean,
+        text="🧪 Teste de Botões\n\nOs botões estão funcionando?",
+        footer="Teste",
+        buttons=[
+            {"id": "SIM", "text": "✅ Sim"},
+            {"id": "NAO", "text": "❌ Não"}
+        ]
+    )
+    
+    return jsonify({
+        "status": "Enviado",
+        "number": number_clean,
+        "result": result,
+        "mensagem": "Verifique se os botões estão clicáveis no WhatsApp"
+    })
+
+@app.route('/test-video/<number>', methods=['GET'])
+def testar_video(number):
+    """Testa envio de vídeo diretamente"""
+    print(f"\n🧪 TESTE DE VÍDEO para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    # Usa a URL configurada ou uma de teste
+    video_url_to_test = request.args.get('url', VIDEO_TUTORIAL_URL)
+    
+    print(f"🎬 Testando URL: {video_url_to_test}")
+    
+    result = send_video(
+        number=number_clean,
+        video_url=video_url_to_test,
+        caption="🧪 Teste de vídeo - Se chegou, está funcionando!"
+    )
+    
+    return jsonify({
+        "status": "Enviado",
+        "number": number_clean,
+        "video_url": video_url_to_test,
+        "result": result,
+        "dica": "Se não chegou como vídeo, verifique se a URL é de download direto"
+    })
+
+@app.route('/check-video', methods=['GET'])
+def check_video():
+    """Verifica se a URL do vídeo está acessível"""
+    video_url = request.args.get('url', VIDEO_TUTORIAL_URL)
+    
+    print(f"\n🔍 VERIFICANDO URL DO VÍDEO: {video_url}")
+    
+    try:
+        # Faz uma requisição HEAD para verificar se o arquivo existe
+        response = requests.head(video_url, allow_redirects=True, timeout=10)
+        
+        info = {
+            "url": video_url,
+            "status_code": response.status_code,
+            "acessivel": response.status_code == 200,
+            "content_type": response.headers.get('Content-Type', 'desconhecido'),
+            "content_length": response.headers.get('Content-Length', 'desconhecido'),
+            "redirects": len(response.history) if response.history else 0,
+            "url_final": response.url
+        }
+        
+        if info["acessivel"]:
+            print(f"   ✅ URL está acessível!")
+            print(f"   📦 Tipo: {info['content_type']}")
+            print(f"   📏 Tamanho: {info['content_length']} bytes")
+        else:
+            print(f"   ❌ URL não está acessível! Status: {response.status_code}")
+        
+        return jsonify(info)
+        
+    except Exception as e:
+        print(f"   ❌ ERRO ao verificar URL: {e}")
+        return jsonify({
+            "url": video_url,
+            "erro": str(e),
+            "acessivel": False
+        })
+
 @app.route('/reset/<number>', methods=['GET'])
 def resetar_usuario(number):
     """Reseta o estado de um usuário"""
@@ -533,7 +729,10 @@ def health():
             "/webhook", 
             "/webhook/text", 
             "/test/<number>", 
-            "/test-text/<number>", 
+            "/test-text/<number>",
+            "/test-buttons/<number>",
+            "/test-video/<number>",
+            "/check-video",
             "/reset/<number>",
             "/health"
         ],
@@ -546,13 +745,16 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "2.1-final",
+        "versao": "3.0-final",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
             "webhook_alternativo": "/webhook/text",
             "teste_bot": "/test/<numero>",
             "teste_envio": "/test-text/<numero>",
+            "teste_botoes": "/test-buttons/<numero>",
+            "teste_video": "/test-video/<numero>",
+            "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
             "health_check": "/health"
         },
@@ -560,7 +762,8 @@ def home():
             "api_host": API_HOST,
             "token_ok": API_TOKEN != 'SEU_TOKEN_AQUI',
             "link_app": LINK_APP_99FOOD,
-            "link_grupo": LINK_GRUPO_OFERTAS
+            "link_grupo": LINK_GRUPO_OFERTAS,
+            "video_url": VIDEO_TUTORIAL_URL
         }
     })
 
@@ -569,7 +772,7 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - UAZAPIGO V2.1 FINAL
+    🤖 CHATBOT 99FOOD - UAZAPIGO V3.0 FINAL
     ╚════════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
@@ -578,8 +781,11 @@ if __name__ == '__main__':
     • POST /webhook - Recebe mensagens (principal)
     • POST /webhook/text - Recebe mensagens (alternativo)
     • GET  /test/<numero> - Testa bot completo
-    • GET  /test-text/<numero> - Testa apenas envio
-    • GET  /reset/<numero> - Reseta estado do usuário
+    • GET  /test-text/<numero> - Testa envio texto
+    • GET  /test-buttons/<numero> - Testa botões
+    • GET  /test-video/<numero> - Testa vídeo
+    • GET  /check-video - Verifica URL do vídeo
+    • GET  /reset/<numero> - Reseta estado
     • GET  /health - Status detalhado
     • GET  / - Informações do bot
     
@@ -587,11 +793,14 @@ if __name__ == '__main__':
     
     🌐 API Host: """ + API_HOST + """
     
+    🎬 Video URL: """ + VIDEO_TUTORIAL_URL + """
+    
     📝 Fluxo do bot:
     1. Usuário manda qualquer mensagem → Bot inicia conversa
     2. Pergunta se tem o app instalado
     3. Pergunta se já usou cupom
-    4. Envia tutorial ou grupo VIP
+    4. Envia tutorial (vídeo) ou grupo VIP
+    5. Finaliza com grupo de ofertas
     
     ╚════════════════════════════════════════╝
     """)
