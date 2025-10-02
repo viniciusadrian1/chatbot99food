@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (versão com debug melhorado)
+Arquivo: chatbot.py (versão completa com debug e fallback)
 """
 
 from flask import Flask, request, jsonify
@@ -24,8 +24,45 @@ user_states = {}
 
 # ==================== FUNÇÕES DE ENVIO ====================
 
+def send_buttons(number, text, footer, buttons):
+    """Envia mensagem com botões simples"""
+    url = f"{API_HOST}/send/buttons"
+    payload = {
+        "number": number,
+        "text": text,
+        "footerText": footer,
+        "buttons": buttons,
+        "readchat": True,
+        "readmessages": True,
+        "delay": 1000
+    }
+    headers = {
+        "Accept": "application/json",
+        "token": API_TOKEN,
+        "Content-Type": "application/json"
+    }
+    
+    print(f"\n📤 ENVIANDO BOTÕES para {number}")
+    print(f"URL: {url}")
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response_data = response.json()
+        
+        print(f"✅ Status HTTP: {response.status_code}")
+        print(f"📥 Resposta: {response.text[:200]}...")
+        
+        msg_status = response_data.get('status', 'unknown')
+        if msg_status == 'Pending':
+            print("⚠️  Mensagem ficou PENDENTE!")
+        
+        return response_data
+    except Exception as e:
+        print(f"❌ ERRO ao enviar botões: {e}")
+        return None
+
 def send_menu(number, text, footer, button_text, choices):
-    """Envia menu com botões"""
+    """Envia menu com botões (mantido para compatibilidade)"""
     url = f"{API_HOST}/send/menu"
     payload = {
         "number": number,
@@ -46,30 +83,21 @@ def send_menu(number, text, footer, button_text, choices):
     }
     
     print(f"\n📤 ENVIANDO MENU para {number}")
-    print(f"URL: {url}")
-    print(f"Token: {API_TOKEN[:10]}...")
     
     try:
         response = requests.post(url, json=payload, headers=headers)
         response_data = response.json()
         
         print(f"✅ Status HTTP: {response.status_code}")
-        print(f"📥 Resposta: {response.text}")
+        print(f"📥 Resposta: {response.text[:200]}...")
         
-        # Verifica se a mensagem foi enviada ou está pendente
         msg_status = response_data.get('status', 'unknown')
         if msg_status == 'Pending':
-            print("⚠️  AVISO: Mensagem ficou PENDENTE!")
-            print("   Possíveis causas:")
-            print("   • WhatsApp desconectado no painel uazapiGO")
-            print("   • Instância com problemas de conexão")
-            print("   • Número bloqueado ou inválido")
+            print("⚠️  Mensagem ficou PENDENTE!")
         
         return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar menu: {e}")
-        import traceback
-        traceback.print_exc()
         return None
 
 def send_text(number, text):
@@ -96,17 +124,14 @@ def send_text(number, text):
         response_data = response.json()
         
         print(f"✅ Status HTTP: {response.status_code}")
-        print(f"📥 Resposta: {response.text}")
         
         msg_status = response_data.get('status', 'unknown')
         if msg_status == 'Pending':
-            print("⚠️  AVISO: Mensagem ficou PENDENTE!")
+            print("⚠️  Mensagem ficou PENDENTE!")
         
         return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar texto: {e}")
-        import traceback
-        traceback.print_exc()
         return None
 
 def send_video(number, video_url, caption=""):
@@ -130,13 +155,17 @@ def send_video(number, video_url, caption=""):
     
     try:
         response = requests.post(url, json=payload, headers=headers)
-        print(f"✅ Status: {response.status_code}")
-        print(f"📥 Resposta: {response.text}")
-        return response.json()
+        response_data = response.json()
+        
+        print(f"✅ Status HTTP: {response.status_code}")
+        
+        msg_status = response_data.get('status', 'unknown')
+        if msg_status == 'Pending':
+            print("⚠️  Mensagem ficou PENDENTE!")
+        
+        return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar vídeo: {e}")
-        import traceback
-        traceback.print_exc()
         return None
 
 # ==================== FLUXO DO CHATBOT ====================
@@ -145,16 +174,25 @@ def iniciar_conversa(number):
     """Pergunta inicial"""
     print(f"\n🚀 INICIANDO conversa com {number}")
     
-    send_menu(
+    # Tenta enviar com botões primeiro
+    result = send_buttons(
         number=number,
         text="👋 Olá! Bem-vindo ao 99Food!\n\n🍕 Você já tem o app da 99Food instalado?",
         footer="Chatbot 99Food",
-        button_text="📱 Responder",
-        choices=[
-            "Sim, já tenho|SIM|✅ App instalado",
-            "Não, ainda não|NAO|📲 Preciso instalar"
+        buttons=[
+            {"id": "SIM", "text": "✅ Sim, já tenho"},
+            {"id": "NAO", "text": "📲 Não, preciso instalar"}
         ]
     )
+    
+    # Se falhar, envia texto simples
+    if result and result.get('status') == 'Pending':
+        print("⚠️ Botões falharam, enviando texto simples...")
+        send_text(
+            number,
+            "👋 Olá! Bem-vindo ao 99Food!\n\n🍕 Você já tem o app da 99Food instalado?\n\n_Responda:_\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
+        )
+    
     user_states[number] = "AGUARDANDO_TEM_APP"
 
 def nao_tem_app(number):
@@ -170,30 +208,36 @@ Após instalar, volte aqui! 😊"""
     
     send_text(number, mensagem)
     
-    send_menu(
+    result = send_buttons(
         number=number,
         text="Você já instalou o app?",
         footer="Chatbot 99Food",
-        button_text="Responder",
-        choices=[
-            "Sim, instalei!|INSTALOU|✅ Instalado",
-            "Vou instalar depois|DEPOIS|⏰ Mais tarde"
+        buttons=[
+            {"id": "INSTALOU", "text": "✅ Sim, instalei!"},
+            {"id": "DEPOIS", "text": "⏰ Vou instalar depois"}
         ]
     )
+    
+    if result and result.get('status') == 'Pending':
+        send_text(number, "Você já instalou o app?\n\n1️⃣ - Sim, instalei!\n2️⃣ - Vou instalar depois")
+    
     user_states[number] = "AGUARDANDO_INSTALACAO"
 
 def tem_app(number):
     """Pergunta sobre cupom"""
-    send_menu(
+    result = send_buttons(
         number=number,
         text="🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?",
         footer="Chatbot 99Food",
-        button_text="💬 Responder",
-        choices=[
-            "Sim, já usei|JA_USEI|✅ Já usei",
-            "Não, ainda não|NAO_USEI|🆕 Nunca usei"
+        buttons=[
+            {"id": "JA_USEI", "text": "✅ Sim, já usei"},
+            {"id": "NAO_USEI", "text": "🆕 Não, nunca usei"}
         ]
     )
+    
+    if result and result.get('status') == 'Pending':
+        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei")
+    
     user_states[number] = "AGUARDANDO_CUPOM"
 
 def enviar_tutorial(number):
@@ -206,17 +250,20 @@ def enviar_tutorial(number):
         caption="🎬 Tutorial: Como usar cupom no 99Food"
     )
     
-    send_menu(
+    result = send_buttons(
         number=number,
         text="📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?",
         footer="Chatbot 99Food",
-        button_text="Responder",
-        choices=[
-            "Sim, deu certo!|DEU_CERTO|✅ Consegui",
-            "Não consegui|NAO_DEU_CERTO|❌ Dificuldade",
-            "Vou tentar depois|DEPOIS|⏰ Mais tarde"
+        buttons=[
+            {"id": "DEU_CERTO", "text": "✅ Sim, consegui!"},
+            {"id": "NAO_DEU_CERTO", "text": "❌ Não consegui"},
+            {"id": "DEPOIS", "text": "⏰ Vou tentar depois"}
         ]
     )
+    
+    if result and result.get('status') == 'Pending':
+        send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
+    
     user_states[number] = "AGUARDANDO_RESULTADO"
 
 def enviar_grupo(number):
@@ -295,13 +342,13 @@ def processar_mensagem(number, message):
         iniciar_conversa(number)
     
     elif estado_atual == "AGUARDANDO_TEM_APP":
-        if "SIM" in msg:
+        if "SIM" in msg or "1" in msg:
             tem_app(number)
-        elif "NAO" in msg or "NÃO" in msg:
+        elif "NAO" in msg or "NÃO" in msg or "2" in msg:
             nao_tem_app(number)
     
     elif estado_atual == "AGUARDANDO_INSTALACAO":
-        if "INSTALOU" in msg:
+        if "INSTALOU" in msg or "1" in msg:
             tem_app(number)
         else:
             send_text(number, "😊 Ok! Quando instalar, me avise!")
@@ -309,15 +356,15 @@ def processar_mensagem(number, message):
                 del user_states[number]
     
     elif estado_atual == "AGUARDANDO_CUPOM":
-        if "JA_USEI" in msg or "JÁ" in msg:
+        if "JA_USEI" in msg or "JÁ" in msg or "1" in msg:
             enviar_grupo(number)
-        elif "NAO_USEI" in msg or "NÃO" in msg:
+        elif "NAO_USEI" in msg or "NÃO" in msg or "2" in msg:
             enviar_tutorial(number)
     
     elif estado_atual == "AGUARDANDO_RESULTADO":
-        if "DEU_CERTO" in msg:
+        if "DEU_CERTO" in msg or "1" in msg:
             deu_certo_tutorial(number)
-        elif "NAO_DEU_CERTO" in msg or "NÃO" in msg:
+        elif "NAO_DEU_CERTO" in msg or "NÃO" in msg or "2" in msg:
             nao_deu_certo_tutorial(number)
         else:
             send_text(number, "😊 Sem pressa! Quando testar, me avise!")
@@ -342,7 +389,7 @@ def webhook():
         # LOG COMPLETO DOS DADOS RECEBIDOS
         print("📦 DADOS BRUTOS RECEBIDOS:")
         import json
-        print(json.dumps(data, indent=2, ensure_ascii=False))
+        print(json.dumps(data, indent=2, ensure_ascii=False)[:1000])
         print("="*60)
         
         # Ignora mensagens enviadas pelo próprio bot
@@ -426,6 +473,7 @@ if __name__ == '__main__':
     📡 Endpoints:
     • POST /webhook - Recebe mensagens
     • GET  /test/<numero> - Testa bot
+    • GET  /test-text/<numero> - Teste simples
     • GET  /health - Status
     
     🔧 Configure webhook: http://seu-ip:5000/webhook
