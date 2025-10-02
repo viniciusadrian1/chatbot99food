@@ -483,24 +483,9 @@ def verificar_pergunta_cupom(message):
     """Verifica se a mensagem e uma pergunta sobre o cupom"""
     msg = message.upper().strip()
     
-    palavras_chave_cupom = [
-        "QUAL CUPOM",
-        "QUAL O CUPOM",
-        "QUAL E O CUPOM",
-        "NOME DO CUPOM",
-        "MEU CUPOM",
-        "ME DA CUPOM",
-        "QUERO CUPOM",
-        "QUERO O CUPOM",
-        "ME FALE CUPOM",
-        "ME FALA CUPOM",
-        "CUPOM QUAL",
-        "CODIGO DO CUPOM"
-    ]
-    
-    for palavra in palavras_chave_cupom:
-        if palavra in msg:
-            return True
+    # Detecta qualquer mensagem que contenha a palavra CUPOM
+    if "CUPOM" in msg:
+        return True
     
     return False
 
