@@ -81,28 +81,15 @@ def send_text(number, text):
         return None
 
 def send_buttons(number, text, footer, buttons):
-    """Envia mensagem com botões simples"""
+    """Envia mensagem com botões simples - FORMATO CORRETO UAZAPI"""
     url = f"{API_HOST}/send/buttons"
     
-    # Formata os botões corretamente para uazapi
-    formatted_buttons = []
-    for btn in buttons:
-        formatted_buttons.append({
-            "buttonId": btn["id"],
-            "buttonText": {
-                "displayText": btn["text"]
-            },
-            "type": 1
-        })
-    
+    # Tenta primeiro o formato padrão da uazapi
     payload = {
         "number": number,
-        "buttonMessage": {
-            "text": text,
-            "footerText": footer,
-            "buttons": formatted_buttons,
-            "headerType": 1
-        }
+        "text": text,
+        "footerText": footer,
+        "buttons": [{"id": btn["id"], "text": btn["text"]} for btn in buttons]
     }
     
     headers = {
@@ -113,113 +100,61 @@ def send_buttons(number, text, footer, buttons):
     
     print(f"\n📤 ENVIANDO BOTÕES para {number}")
     print(f"🔑 Token: {API_TOKEN[:10]}...{API_TOKEN[-5:]}")
-    print(f"📦 Payload: {payload}")
+    print(f"📦 Payload Tentativa 1 (simples): {payload}")
     
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         
-        print(f"\n📊 RESPOSTA DA API (BOTÕES):")
+        print(f"\n📊 RESPOSTA DA API (BOTÕES - Tentativa 1):")
         print(f"   Status HTTP: {response.status_code}")
-        print(f"   Resposta: {response.text[:300]}")
-        
-        response_data = response.json()
-        msg_status = response_data.get('status', 'unknown')
-        
-        if msg_status == 'Pending' or response.status_code != 200:
-            print(f"   ⚠️ FALHA nos botões - Tentando formato de lista...")
-            return send_list(number, text, footer, buttons)
-            
-        print(f"   ✅ Botões enviados com sucesso!")
-        return response_data
-    except Exception as e:
-        print(f"   ❌ ERRO ao enviar botões: {e}")
-        import traceback
-        traceback.print_exc()
-        return send_list(number, text, footer, buttons)
-
-def send_list(number, text, footer, buttons):
-    """Envia lista interativa (fallback para botões)"""
-    url = f"{API_HOST}/send/list"
-    
-    # Converte botões para formato de lista
-    rows = []
-    for btn in buttons:
-        rows.append({
-            "title": btn["text"],
-            "rowId": btn["id"],
-            "description": ""
-        })
-    
-    payload = {
-        "number": number,
-        "listMessage": {
-            "text": text,
-            "footerText": footer,
-            "title": "Escolha uma opção",
-            "buttonText": "Ver opções",
-            "sections": [
-                {
-                    "title": "Opções disponíveis",
-                    "rows": rows
-                }
-            ]
-        }
-    }
-    
-    headers = {
-        "Accept": "application/json",
-        "token": API_TOKEN,
-        "Content-Type": "application/json"
-    }
-    
-    print(f"\n📋 ENVIANDO LISTA para {number}")
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        
-        print(f"\n📊 RESPOSTA DA API (LISTA):")
-        print(f"   Status HTTP: {response.status_code}")
-        print(f"   Resposta: {response.text[:300]}")
-        
-        response_data = response.json()
+        print(f"   Resposta COMPLETA: {response.text}")
         
         if response.status_code == 200:
-            print(f"   ✅ Lista enviada com sucesso!")
-            return response_data
-        else:
-            print(f"   ⚠️ Lista também falhou - usando texto simples")
-            return None
-            
+            response_data = response.json()
+            if response_data.get('status') not in ['Pending', 'error']:
+                print(f"   ✅ Botões enviados com sucesso!")
+                return response_data
+        
+        print(f"   ⚠️ Formato 1 falhou, tentando formato 2...")
+        
     except Exception as e:
-        print(f"   ❌ ERRO ao enviar lista: {e}")
-        return None
+        print(f"   ❌ ERRO tentativa 1: {e}")
+    
+    # Tentativa 2: Formato alternativo
+    payload2 = {
+        "number": number,
+        "options": {
+            "text": text,
+            "footer": footer,
+            "buttons": buttons
+        }
+    }
+    
+    print(f"\n📦 Payload Tentativa 2 (alternativo): {payload2}")
+    
+    try:
+        response = requests.post(url, json=payload2, headers=headers, timeout=10)
+        
+        print(f"\n📊 RESPOSTA DA API (BOTÕES - Tentativa 2):")
+        print(f"   Status HTTP: {response.status_code}")
+        print(f"   Resposta COMPLETA: {response.text}")
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get('status') not in ['Pending', 'error']:
+                print(f"   ✅ Botões enviados (formato 2)!")
+                return response_data
+        
+    except Exception as e:
+        print(f"   ❌ ERRO tentativa 2: {e}")
+    
+    # Se botões não funcionarem, usa texto simples
+    print(f"   ⚠️ Botões não funcionaram - usando texto simples")
+    return None
 
 def send_video(number, video_url, caption=""):
-    """Envia vídeo como mídia"""
-    url = f"{API_HOST}/send/video"
-    
-    # Tenta diferentes formatos de payload
-    payloads_to_try = [
-        # Formato 1: media
-        {
-            "number": number,
-            "media": video_url,
-            "caption": caption
-        },
-        # Formato 2: video
-        {
-            "number": number,
-            "video": video_url,
-            "caption": caption
-        },
-        # Formato 3: url
-        {
-            "number": number,
-            "url": video_url,
-            "caption": caption,
-            "mimetype": "video/mp4"
-        }
-    ]
+    """Envia vídeo como mídia - FORMATO CORRETO UAZAPI"""
+    url = f"{API_HOST}/send/media"
     
     headers = {
         "Accept": "application/json",
@@ -230,33 +165,70 @@ def send_video(number, video_url, caption=""):
     print(f"\n📤 ENVIANDO VÍDEO para {number}")
     print(f"🎬 URL do vídeo: {video_url}")
     
-    # Tenta cada formato até funcionar
-    for i, payload in enumerate(payloads_to_try, 1):
+    # Formatos a testar
+    payloads_to_try = [
+        # Formato 1: send/media com mediaUrl
+        {
+            "endpoint": f"{API_HOST}/send/media",
+            "payload": {
+                "number": number,
+                "mediaUrl": video_url,
+                "mediaType": "video",
+                "caption": caption
+            }
+        },
+        # Formato 2: send/video direto
+        {
+            "endpoint": f"{API_HOST}/send/video",
+            "payload": {
+                "number": number,
+                "video": video_url,
+                "caption": caption
+            }
+        },
+        # Formato 3: send/file genérico
+        {
+            "endpoint": f"{API_HOST}/send/file",
+            "payload": {
+                "number": number,
+                "url": video_url,
+                "caption": caption,
+                "filename": "tutorial.mp4"
+            }
+        }
+    ]
+    
+    # Tenta cada formato
+    for i, test in enumerate(payloads_to_try, 1):
         try:
-            print(f"\n🔄 Tentativa {i}/3 com payload: {list(payload.keys())}")
+            print(f"\n🔄 Tentativa {i}/3")
+            print(f"   Endpoint: {test['endpoint']}")
+            print(f"   Payload: {test['payload']}")
             
-            response = requests.post(url, json=payload, headers=headers, timeout=20)
+            response = requests.post(test['endpoint'], json=test['payload'], headers=headers, timeout=20)
             
             print(f"\n📊 RESPOSTA DA API (VÍDEO - Tentativa {i}):")
             print(f"   Status HTTP: {response.status_code}")
-            print(f"   Resposta: {response.text[:300]}")
+            print(f"   Resposta: {response.text[:500]}")
             
-            response_data = response.json()
-            
-            if response.status_code == 200 and response_data.get('status') != 'error':
-                print(f"   ✅ Vídeo enviado com sucesso no formato {i}!")
-                return response_data
+            if response.status_code == 200:
+                response_data = response.json()
+                if response_data.get('status') not in ['error', 'Pending']:
+                    print(f"   ✅ Vídeo enviado com sucesso no formato {i}!")
+                    return response_data
+                else:
+                    print(f"   ⚠️ Formato {i} retornou erro: {response_data.get('message', 'desconhecido')}")
             else:
-                print(f"   ⚠️ Formato {i} não funcionou, tentando próximo...")
+                print(f"   ⚠️ Formato {i} - Status HTTP {response.status_code}")
                 
         except Exception as e:
             print(f"   ❌ ERRO na tentativa {i}: {e}")
             continue
     
-    # Se nenhum formato funcionar, envia link como texto
-    print(f"\n⚠️ Nenhum formato de vídeo funcionou, enviando link como texto...")
-    send_text(number, f"🎬 Assista o tutorial aqui:\n{video_url}")
-    return {"status": "sent_as_link"}
+    # Se nada funcionar, envia link como texto
+    print(f"\n⚠️ FALLBACK: Enviando vídeo como link de texto...")
+    send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
+    return {"status": "sent_as_link", "url": video_url}
 
 # ==================== FLUXO DO CHATBOT ====================
 
