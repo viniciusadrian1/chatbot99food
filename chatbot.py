@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (versão corrigida com múltiplas rotas)
+Arquivo: chatbot.py (VERSÃO COMPLETA E ATUALIZADA)
 """
 
 from flask import Flask, request, jsonify
@@ -24,6 +24,62 @@ user_states = {}
 
 # ==================== FUNÇÕES DE ENVIO ====================
 
+def send_text(number, text):
+    """Envia mensagem de texto"""
+    url = f"{API_HOST}/send/text"
+    payload = {
+        "number": number,
+        "text": text,
+        "readchat": True,
+        "readmessages": True,
+        "delay": 1000
+    }
+    headers = {
+        "Accept": "application/json",
+        "token": API_TOKEN,
+        "Content-Type": "application/json"
+    }
+    
+    print(f"\n📤 ENVIANDO TEXTO para {number}")
+    print(f"📝 Mensagem: {text[:100]}...")
+    print(f"🔑 Token: {API_TOKEN[:10]}...{API_TOKEN[-5:]}")
+    print(f"🌐 URL: {url}")
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        print(f"\n📊 RESPOSTA DA API:")
+        print(f"   Status HTTP: {response.status_code}")
+        print(f"   Resposta completa: {response.text}")
+        
+        try:
+            response_data = response.json()
+            msg_status = response_data.get('status', 'unknown')
+            
+            if response.status_code == 200:
+                print(f"   ✅ SUCESSO!")
+            else:
+                print(f"   ⚠️ Status não é 200")
+                
+            if msg_status == 'Pending':
+                print(f"   ⚠️ Mensagem ficou PENDENTE (status: {msg_status})")
+            elif msg_status == 'error':
+                print(f"   ❌ ERRO na API: {response_data.get('message', 'Erro desconhecido')}")
+                
+            return response_data
+        except:
+            print(f"   ❌ ERRO ao parsear JSON da resposta")
+            return {"status": "error", "raw": response.text}
+            
+    except requests.exceptions.Timeout:
+        print(f"   ⏱️ TIMEOUT - API não respondeu em 10s")
+        return None
+    except Exception as e:
+        print(f"   ❌ EXCEÇÃO: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def send_buttons(number, text, footer, buttons):
     """Envia mensagem com botões simples"""
     url = f"{API_HOST}/send/buttons"
@@ -43,56 +99,25 @@ def send_buttons(number, text, footer, buttons):
     }
     
     print(f"\n📤 ENVIANDO BOTÕES para {number}")
-    print(f"URL: {url}")
+    print(f"🔑 Token: {API_TOKEN[:10]}...{API_TOKEN[-5:]}")
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        print(f"\n📊 RESPOSTA DA API (BOTÕES):")
+        print(f"   Status HTTP: {response.status_code}")
+        print(f"   Resposta: {response.text[:300]}")
+        
         response_data = response.json()
-        
-        print(f"✅ Status HTTP: {response.status_code}")
-        print(f"📥 Resposta: {response.text[:200]}...")
-        
         msg_status = response_data.get('status', 'unknown')
-        if msg_status == 'Pending':
-            print("⚠️ Mensagem ficou PENDENTE!")
         
+        if msg_status == 'Pending' or response.status_code != 200:
+            print(f"   ⚠️ FALHA nos botões - Usando texto simples como fallback")
+            return None
+            
         return response_data
     except Exception as e:
-        print(f"❌ ERRO ao enviar botões: {e}")
-        return None
-
-def send_text(number, text):
-    """Envia mensagem de texto"""
-    url = f"{API_HOST}/send/text"
-    payload = {
-        "number": number,
-        "text": text,
-        "readchat": True,
-        "readmessages": True,
-        "delay": 1000
-    }
-    headers = {
-        "Accept": "application/json",
-        "token": API_TOKEN,
-        "Content-Type": "application/json"
-    }
-    
-    print(f"\n📤 ENVIANDO TEXTO para {number}")
-    print(f"Mensagem: {text[:50]}...")
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers)
-        response_data = response.json()
-        
-        print(f"✅ Status HTTP: {response.status_code}")
-        
-        msg_status = response_data.get('status', 'unknown')
-        if msg_status == 'Pending':
-            print("⚠️ Mensagem ficou PENDENTE!")
-        
-        return response_data
-    except Exception as e:
-        print(f"❌ ERRO ao enviar texto: {e}")
+        print(f"   ❌ ERRO ao enviar botões: {e}")
         return None
 
 def send_video(number, video_url, caption=""):
@@ -115,18 +140,14 @@ def send_video(number, video_url, caption=""):
     print(f"\n📤 ENVIANDO VÍDEO para {number}")
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
         response_data = response.json()
         
-        print(f"✅ Status HTTP: {response.status_code}")
-        
-        msg_status = response_data.get('status', 'unknown')
-        if msg_status == 'Pending':
-            print("⚠️ Mensagem ficou PENDENTE!")
+        print(f"   Status HTTP: {response.status_code}")
         
         return response_data
     except Exception as e:
-        print(f"❌ ERRO ao enviar vídeo: {e}")
+        print(f"   ❌ ERRO ao enviar vídeo: {e}")
         return None
 
 # ==================== FLUXO DO CHATBOT ====================
@@ -147,7 +168,7 @@ def iniciar_conversa(number):
     )
     
     # Se falhar, envia texto simples
-    if result and result.get('status') == 'Pending':
+    if not result or result.get('status') == 'Pending':
         print("⚠️ Botões falharam, enviando texto simples...")
         send_text(
             number,
@@ -179,7 +200,7 @@ Após instalar, volte aqui! 😊"""
         ]
     )
     
-    if result and result.get('status') == 'Pending':
+    if not result or result.get('status') == 'Pending':
         send_text(number, "Você já instalou o app?\n\n1️⃣ - Sim, instalei!\n2️⃣ - Vou instalar depois")
     
     user_states[number] = "AGUARDANDO_INSTALACAO"
@@ -196,7 +217,7 @@ def tem_app(number):
         ]
     )
     
-    if result and result.get('status') == 'Pending':
+    if not result or result.get('status') == 'Pending':
         send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei")
     
     user_states[number] = "AGUARDANDO_CUPOM"
@@ -222,7 +243,7 @@ def enviar_tutorial(number):
         ]
     )
     
-    if result and result.get('status') == 'Pending':
+    if not result or result.get('status') == 'Pending':
         send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
     
     user_states[number] = "AGUARDANDO_RESULTADO"
@@ -295,44 +316,82 @@ def processar_mensagem(number, message):
     print(f"\n{'='*60}")
     print(f"⚙️ PROCESSANDO MENSAGEM")
     print(f"👤 Usuário: {number}")
-    print(f"📊 Estado: {estado_atual}")
-    print(f"💬 Mensagem: {message}")
+    print(f"📊 Estado atual: {estado_atual}")
+    print(f"💬 Mensagem recebida: '{message}'")
+    print(f"🔠 Mensagem normalizada: '{msg}'")
     print(f"{'='*60}")
     
-    if estado_atual == "INICIO":
+    # Se não tem estado ou é uma saudação inicial, inicia conversa
+    if estado_atual == "INICIO" or number not in user_states:
+        print("   → Ação: Iniciar conversa (primeiro contato)")
         iniciar_conversa(number)
+        return
     
     elif estado_atual == "AGUARDANDO_TEM_APP":
-        if "SIM" in msg or "1" in msg:
+        print(f"   → Verificando resposta...")
+        
+        if "SIM" in msg or msg == "1":
+            print("   → Ação: Usuário TEM o app")
             tem_app(number)
-        elif "NAO" in msg or "NÃO" in msg or "2" in msg:
+        elif "NAO" in msg or "NÃO" in msg or msg == "2":
+            print("   → Ação: Usuário NÃO TEM o app")
             nao_tem_app(number)
+        else:
+            print("   → Ação: Resposta não reconhecida, repetindo pergunta")
+            send_text(
+                number,
+                "🤔 Não entendi sua resposta.\n\nPor favor, escolha uma opção:\n\n1️⃣ - Sim, já tenho o app\n2️⃣ - Não, preciso instalar"
+            )
+        return
     
     elif estado_atual == "AGUARDANDO_INSTALACAO":
-        if "INSTALOU" in msg or "1" in msg:
+        print(f"   → Verificando instalação...")
+        
+        if "INSTALOU" in msg or msg == "1":
+            print("   → Ação: Usuário instalou")
             tem_app(number)
         else:
-            send_text(number, "😊 Ok! Quando instalar, me avise!")
+            print("   → Ação: Usuário vai instalar depois")
+            send_text(number, "😊 Ok! Quando instalar, me mande uma mensagem! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
+        return
     
     elif estado_atual == "AGUARDANDO_CUPOM":
-        if "JA_USEI" in msg or "JÁ" in msg or "1" in msg:
+        print(f"   → Verificando uso de cupom...")
+        
+        if "JA" in msg or "JÁ" in msg or msg == "1":
+            print("   → Ação: Usuário JÁ USOU cupom")
             enviar_grupo(number)
-        elif "NAO_USEI" in msg or "NÃO" in msg or "2" in msg:
+        elif "NAO" in msg or "NÃO" in msg or msg == "2":
+            print("   → Ação: Usuário NUNCA USOU cupom")
             enviar_tutorial(number)
+        else:
+            print("   → Ação: Resposta não reconhecida")
+            send_text(
+                number,
+                "🤔 Não entendi.\n\nVocê já usou cupom no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei"
+            )
+        return
     
     elif estado_atual == "AGUARDANDO_RESULTADO":
-        if "DEU_CERTO" in msg or "1" in msg:
+        print(f"   → Verificando resultado do tutorial...")
+        
+        if "DEU_CERTO" in msg or msg == "1" or "CONSEGUI" in msg:
+            print("   → Ação: Tutorial DEU CERTO")
             deu_certo_tutorial(number)
-        elif "NAO_DEU_CERTO" in msg or "NÃO" in msg or "2" in msg:
+        elif "NAO_DEU_CERTO" in msg or msg == "2" or "NAO CONSEGUI" in msg or "NÃO CONSEGUI" in msg:
+            print("   → Ação: Tutorial NÃO DEU CERTO")
             nao_deu_certo_tutorial(number)
         else:
-            send_text(number, "😊 Sem pressa! Quando testar, me avise!")
+            print("   → Ação: Vai tentar depois")
+            send_text(number, "😊 Sem pressa! Quando testar, me avise! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
+        return
     
     else:
+        print("   → Estado desconhecido, reiniciando")
         iniciar_conversa(number)
 
 def processar_webhook(data):
@@ -349,17 +408,22 @@ def processar_webhook(data):
     message_text = message_data.get('text', '') or message_data.get('content', '')
     button_choice = message_data.get('buttonOrListid', '')
     
-    print(f"📱 Número extraído: '{number}'")
-    print(f"💬 Texto extraído: '{message_text}'")
-    print(f"🔘 Botão extraído: '{button_choice}'")
+    print(f"\n📋 EXTRAÇÃO DE DADOS:")
+    print(f"   📱 Número: '{number}'")
+    print(f"   💬 Texto: '{message_text}'")
+    print(f"   🔘 Botão: '{button_choice}'")
     
     if number and (message_text or button_choice):
         final_message = button_choice if button_choice else message_text
-        print(f"🚀 PROCESSANDO: '{final_message}'")
+        print(f"   ✅ Mensagem final: '{final_message}'")
+        print(f"\n🚀 INICIANDO PROCESSAMENTO...")
+        
         processar_mensagem(number, final_message)
         return {"status": "success"}, 200
     
-    print("❌ ERRO - Dados incompletos ou inválidos")
+    print("❌ ERRO - Dados incompletos")
+    print(f"   Número válido? {bool(number)}")
+    print(f"   Mensagem válida? {bool(message_text or button_choice)}")
     return {"error": "Dados incompletos"}, 400
 
 # ==================== ROTAS ====================
@@ -373,12 +437,6 @@ def webhook():
         print("\n" + "="*60)
         print(f"📨 WEBHOOK RECEBIDO em {datetime.now()}")
         print(f"🔗 ROTA: /webhook")
-        print("="*60)
-        
-        # LOG COMPLETO DOS DADOS
-        import json
-        print("📦 DADOS RECEBIDOS:")
-        print(json.dumps(data, indent=2, ensure_ascii=False)[:1000])
         print("="*60)
         
         result, status_code = processar_webhook(data)
@@ -401,12 +459,6 @@ def webhook_text():
         print(f"🔗 ROTA: /webhook/text")
         print("="*60)
         
-        # LOG COMPLETO DOS DADOS
-        import json
-        print("📦 DADOS RECEBIDOS:")
-        print(json.dumps(data, indent=2, ensure_ascii=False)[:1000])
-        print("="*60)
-        
         result, status_code = processar_webhook(data)
         return jsonify(result), status_code
     
@@ -420,25 +472,53 @@ def webhook_text():
 def testar(number):
     """Testa o bot manualmente"""
     print(f"\n🧪 TESTE MANUAL iniciado para {number}")
+    
+    # Limpa estado anterior
+    if number in user_states:
+        del user_states[number]
+    
     iniciar_conversa(number)
-    return jsonify({"status": "Iniciado", "number": number})
+    return jsonify({
+        "status": "Iniciado", 
+        "number": number,
+        "mensagem": "Verifique o WhatsApp!"
+    })
 
 @app.route('/test-text/<number>', methods=['GET'])
 def testar_texto(number):
     """Testa envio de texto simples"""
     print(f"\n🧪 TESTE DE TEXTO SIMPLES para {number}")
     
-    # Remove caracteres especiais
     number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
     print(f"📱 Número limpo: {number_clean}")
     
-    result = send_text(number_clean, "🧪 Teste de conexão - Se você recebeu isso, o bot está funcionando!")
+    result = send_text(number_clean, "🧪 **TESTE DE CONEXÃO**\n\nSe você recebeu isso, o bot está funcionando! ✅")
     
     return jsonify({
         "status": "Enviado",
         "number": number_clean,
-        "result": result
+        "result": result,
+        "token_configurado": API_TOKEN != 'SEU_TOKEN_AQUI'
     })
+
+@app.route('/reset/<number>', methods=['GET'])
+def resetar_usuario(number):
+    """Reseta o estado de um usuário"""
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    if number_clean in user_states:
+        del user_states[number_clean]
+        return jsonify({
+            "status": "resetado",
+            "number": number_clean,
+            "mensagem": "Estado do usuário foi resetado. Mande uma mensagem para começar de novo."
+        })
+    else:
+        return jsonify({
+            "status": "não encontrado",
+            "number": number_clean,
+            "mensagem": "Usuário não tinha estado ativo."
+        })
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -446,8 +526,17 @@ def health():
     return jsonify({
         "status": "online",
         "usuarios_ativos": len(user_states),
+        "estados_usuarios": {k: v for k, v in user_states.items()},
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
-        "rotas_disponiveis": ["/webhook", "/webhook/text", "/test/<number>", "/health"],
+        "api_host": API_HOST,
+        "rotas_disponiveis": [
+            "/webhook", 
+            "/webhook/text", 
+            "/test/<number>", 
+            "/test-text/<number>", 
+            "/reset/<number>",
+            "/health"
+        ],
         "timestamp": datetime.now().isoformat()
     })
 
@@ -457,13 +546,21 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "2.0",
+        "versao": "2.1-final",
+        "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
             "webhook_alternativo": "/webhook/text",
-            "teste": "/test/<numero>",
-            "teste_texto": "/test-text/<numero>",
-            "health": "/health"
+            "teste_bot": "/test/<numero>",
+            "teste_envio": "/test-text/<numero>",
+            "resetar_usuario": "/reset/<numero>",
+            "health_check": "/health"
+        },
+        "configuracao": {
+            "api_host": API_HOST,
+            "token_ok": API_TOKEN != 'SEU_TOKEN_AQUI',
+            "link_app": LINK_APP_99FOOD,
+            "link_grupo": LINK_GRUPO_OFERTAS
         }
     })
 
@@ -472,28 +569,31 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - UAZAPIGO V2
+    🤖 CHATBOT 99FOOD - UAZAPIGO V2.1 FINAL
     ╚════════════════════════════════════════╝
     
-    ✅ Servidor rodando!
+    ✅ Servidor rodando com DEBUG COMPLETO!
     
-    📡 Endpoints:
+    📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
     • POST /webhook/text - Recebe mensagens (alternativo)
-    • GET  /test/<numero> - Testa bot
-    • GET  /test-text/<numero> - Teste simples
-    • GET  /health - Status
-    • GET  / - Página inicial
+    • GET  /test/<numero> - Testa bot completo
+    • GET  /test-text/<numero> - Testa apenas envio
+    • GET  /reset/<numero> - Reseta estado do usuário
+    • GET  /health - Status detalhado
+    • GET  / - Informações do bot
     
-    🔧 Configure webhook: 
-       https://seu-dominio.com/webhook
-       OU
-       https://seu-dominio.com/webhook/text
+    🔧 Token configurado: """ + ("✅ SIM" if API_TOKEN != 'SEU_TOKEN_AQUI' else "❌ NÃO - Configure API_TOKEN!") + """
+    
+    🌐 API Host: """ + API_HOST + """
+    
+    📝 Fluxo do bot:
+    1. Usuário manda qualquer mensagem → Bot inicia conversa
+    2. Pergunta se tem o app instalado
+    3. Pergunta se já usou cupom
+    4. Envia tutorial ou grupo VIP
+    
     ╚════════════════════════════════════════╝
     """)
-    
-    # Valida configuração
-    if API_TOKEN == 'SEU_TOKEN_AQUI':
-        print("⚠️  AVISO: API_TOKEN não configurado!")
     
     app.run(host='0.0.0.0', port=PORT, debug=False)
