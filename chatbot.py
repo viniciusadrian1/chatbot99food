@@ -15,6 +15,7 @@ API_TOKEN = os.getenv('API_TOKEN', 'SEU_TOKEN_AQUI')
 LINK_APP_99FOOD = os.getenv('LINK_APP_99FOOD', 'https://seu-link-unico-aqui.com')
 VIDEO_TUTORIAL_URL = os.getenv('VIDEO_TUTORIAL_URL', 'https://drive.google.com/uc?export=download&id=1MrJfG477mSjmiJmx9o_zvzd-X7SI3Vt1')
 LINK_GRUPO_OFERTAS = os.getenv('LINK_GRUPO_OFERTAS', 'https://chat.whatsapp.com/seu-link-grupo')
+CUPOM_DESCONTO = os.getenv('CUPOM_DESCONTO', 'PRIMEIRACOMPRA50')
 
 PORT = int(os.getenv('PORT', 5000))
 # ====================================================================
@@ -271,12 +272,13 @@ def tem_app(number):
         footer="Chatbot 99Food",
         buttons=[
             {"id": "JA_USEI", "text": "✅ Sim, já usei"},
-            {"id": "NAO_USEI", "text": "🆕 Não, nunca usei"}
+            {"id": "NAO_USEI", "text": "🆕 Não, nunca usei"},
+            {"id": "QUERO_CUPOM", "text": "🎁 Quero um cupom!"}
         ]
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei")
+        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!")
     
     user_states[number] = "AGUARDANDO_CUPOM"
 
