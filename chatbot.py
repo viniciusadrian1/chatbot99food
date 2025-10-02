@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (VERSÃO COMPLETA E CORRIGIDA)
+Arquivo: chatbot.py (VERSÃO COMPLETA E CORRIGIDA - com envio de cupom)
 """
 
 from flask import Flask, request, jsonify
@@ -282,6 +282,34 @@ def tem_app(number):
     
     user_states[number] = "AGUARDANDO_CUPOM"
 
+def enviar_cupom(number):
+    """Envia o cupom de desconto para o usuário"""
+    print(f"🎁 ENVIANDO CUPOM para {number}")
+    
+    mensagem = f"""🎁 *Seu cupom exclusivo!*
+
+🎉 Use o cupom abaixo no app 99Food:
+
+🎫 *{CUPOM_DESCONTO}*
+
+💡 *Como usar:*
+1. Abra o app 99Food
+2. Escolha seu pedido
+3. Na tela de pagamento, procure "Cupom"
+4. Cole o cupom: *{CUPOM_DESCONTO}*
+5. Aproveite o desconto! 🚀
+
+📹 Quer ver um tutorial em vídeo? Vou te mostrar!"""
+    
+    send_text(number, mensagem)
+    
+    # Aguarda 2 segundos antes de perguntar sobre o tutorial
+    import time
+    time.sleep(2)
+    
+    # Agora continua para o tutorial
+    enviar_tutorial(number)
+
 def enviar_tutorial(number):
     """Envia vídeo tutorial"""
     send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
@@ -436,11 +464,14 @@ def processar_mensagem(number, message):
         elif "NAO" in msg or "NÃO" in msg or msg == "2":
             print("   → Ação: Usuário NUNCA USOU cupom")
             enviar_tutorial(number)
+        elif "QUERO" in msg or msg == "3":
+            print("   → Ação: Usuário QUER UM CUPOM")
+            enviar_cupom(number)
         else:
             print("   → Ação: Resposta não reconhecida")
             send_text(
                 number,
-                "🤔 Não entendi.\n\nVocê já usou cupom no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei"
+                "🤔 Não entendi.\n\nVocê já usou cupom no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!"
             )
         return
     
@@ -621,6 +652,25 @@ def testar_video(number):
         "dica": "Se não chegou como vídeo, verifique se a URL é de download direto"
     })
 
+@app.route('/test-cupom/<number>', methods=['GET'])
+def testar_cupom(number):
+    """Testa envio de cupom diretamente"""
+    print(f"\n🧪 TESTE DE CUPOM para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    # Simula estado para testar o fluxo do cupom
+    user_states[number_clean] = "AGUARDANDO_CUPOM"
+    
+    enviar_cupom(number_clean)
+    
+    return jsonify({
+        "status": "Enviado",
+        "number": number_clean,
+        "cupom": CUPOM_DESCONTO,
+        "mensagem": "Verifique se recebeu o cupom e o tutorial!"
+    })
+
 @app.route('/check-video', methods=['GET'])
 def check_video():
     """Verifica se a URL do vídeo está acessível"""
@@ -687,6 +737,7 @@ def health():
         "estados_usuarios": {k: v for k, v in user_states.items()},
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
         "api_host": API_HOST,
+        "cupom_configurado": CUPOM_DESCONTO,
         "rotas_disponiveis": [
             "/webhook", 
             "/webhook/text", 
@@ -694,6 +745,7 @@ def health():
             "/test-text/<number>",
             "/test-buttons/<number>",
             "/test-video/<number>",
+            "/test-cupom/<number>",
             "/check-video",
             "/reset/<number>",
             "/health"
@@ -707,7 +759,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.0-final-corrigido",
+        "versao": "3.1-cupom-corrigido",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -716,6 +768,7 @@ def home():
             "teste_envio": "/test-text/<numero>",
             "teste_botoes": "/test-buttons/<numero>",
             "teste_video": "/test-video/<numero>",
+            "teste_cupom": "/test-cupom/<numero>",
             "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
             "health_check": "/health"
@@ -725,7 +778,11 @@ def home():
             "token_ok": API_TOKEN != 'SEU_TOKEN_AQUI',
             "link_app": LINK_APP_99FOOD,
             "link_grupo": LINK_GRUPO_OFERTAS,
-            "video_url": VIDEO_TUTORIAL_URL
+            "video_url": VIDEO_TUTORIAL_URL,
+            "cupom": CUPOM_DESCONTO
+        },
+        "fluxo_corrigido": {
+            "opcao_3": "Agora envia cupom + tutorial quando usuário escolhe 'Quero um cupom!'"
         }
     })
 
@@ -733,12 +790,13 @@ def home():
 
 if __name__ == '__main__':
     print("""
-    ╔═══════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - UAZAPIGO V3.0 FINAL
-    ╚═══════════════════════════════════════╝
+    ╔═══════════════════════════════════════════╗
+    🤖 CHATBOT 99FOOD - UAZAPIGO V3.1 CORRIGIDO
+    ╚═══════════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
     ✅ Envio de vídeo CORRIGIDO (formato Uazapi)
+    ✅ CORREÇÃO: Opção 3 agora envia CUPOM + TUTORIAL!
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -747,6 +805,7 @@ if __name__ == '__main__':
     • GET  /test-text/<numero> - Testa envio texto
     • GET  /test-buttons/<numero> - Testa botões
     • GET  /test-video/<numero> - Testa vídeo
+    • GET  /test-cupom/<numero> - Testa envio de cupom
     • GET  /check-video - Verifica URL do vídeo
     • GET  /reset/<numero> - Reseta estado
     • GET  /health - Status detalhado
@@ -758,19 +817,26 @@ if __name__ == '__main__':
     
     🎬 Video URL: """ + VIDEO_TUTORIAL_URL + """
     
+    🎁 Cupom: """ + CUPOM_DESCONTO + """
+    
     📝 Fluxo do bot:
     1. Usuário manda qualquer mensagem → Bot inicia conversa
     2. Pergunta se tem o app instalado
     3. Pergunta se já usou cupom
-    4. Envia tutorial (vídeo como MÍDIA) ou grupo VIP
+       • Opção 1 (Já usei) → Envia grupo VIP
+       • Opção 2 (Nunca usei) → Envia tutorial
+       • Opção 3 (Quero cupom!) → Envia CUPOM + TUTORIAL ✅
+    4. Após tutorial, pergunta se conseguiu usar
     5. Finaliza com grupo de ofertas
     
-    🎥 CORREÇÃO APLICADA:
-    • Vídeo agora usa formato correto da Uazapi
-    • Payload: {"type": "video", "file": "url", "text": "caption"}
-    • Endpoint: /send/media
+    🎥 CORREÇÃO APLICADA - OPÇÃO 3:
+    ✅ Quando usuário escolhe "Quero um cupom!":
+       1. Envia mensagem com o cupom destacado
+       2. Explica como usar o cupom
+       3. Continua automaticamente para o tutorial em vídeo
+       4. Pergunta se conseguiu usar após o vídeo
     
-    ╚═══════════════════════════════════════╝
+    ╚═══════════════════════════════════════════╝
     """)
     
     app.run(host='0.0.0.0', port=PORT, debug=False)
