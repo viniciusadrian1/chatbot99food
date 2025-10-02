@@ -1,4 +1,11 @@
-"""
+"sistema_estatisticas": {
+            "comando_whatsapp_censurado": COMANDO_RELATORIO + " (números censurados)",
+            "comando_whatsapp_completo": COMANDO_RELATORIO + " SENHA (números completos)",
+            "url_web_censurado": "/relatorio (HTML, números censurados)",
+            "url_web_completo": "/relatorio/full?senha=SENHA (HTML, números completos)",
+            "url_json_censurado": "/stats/view (JSON, números censurados)",
+            "url_json_completo": "/stats/full?senha=SENHA (JSON, números completos)",
+            "senha_padrao": "admin123 (configure SENHA_ADMIN_RELATORIO no"""
 Chatbot 99Food - uazapiGO V4.0
 Arquivo: chatbot.py (VERSÃO ANTI-LOOP COM CONFIRMAÇÕES)
 Correção: Aguarda resposta do usuário entre cada etapa
@@ -27,16 +34,44 @@ app = Flask(__name__)
 user_states = {}
 
 # ==================== SISTEMA DE ESTATÍSTICAS ====================
-# Armazena estatísticas do bot
-estatisticas = {
-    "total_conversas": 0,
-    "conversas_hoje": [],
-    "conversas_finalizadas": 0,
-    "cupons_enviados": 0,
-    "tutoriais_enviados": 0,
-    "usuarios_grupo": 0,
-    "usuarios_por_data": {}
-}
+import json
+
+# Arquivo para persistir estatísticas
+STATS_FILE = 'bot_estatisticas.json'
+
+def carregar_estatisticas():
+    """Carrega estatísticas do arquivo"""
+    try:
+        if os.path.exists(STATS_FILE):
+            with open(STATS_FILE, 'r', encoding='utf-8') as f:
+                stats = json.load(f)
+                print(f"✅ Estatísticas carregadas: {stats.get('total_conversas', 0)} conversas totais")
+                return stats
+    except Exception as e:
+        print(f"⚠️ Erro ao carregar estatísticas: {e}")
+    
+    # Retorna estrutura padrão se não conseguir carregar
+    return {
+        "total_conversas": 0,
+        "conversas_hoje": [],
+        "conversas_finalizadas": 0,
+        "cupons_enviados": 0,
+        "tutoriais_enviados": 0,
+        "usuarios_grupo": 0,
+        "usuarios_por_data": {}
+    }
+
+def salvar_estatisticas():
+    """Salva estatísticas no arquivo"""
+    try:
+        with open(STATS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(estatisticas, f, ensure_ascii=False, indent=2)
+        print(f"💾 Estatísticas salvas: {estatisticas['total_conversas']} conversas totais")
+    except Exception as e:
+        print(f"❌ Erro ao salvar estatísticas: {e}")
+
+# Carrega estatísticas ao iniciar
+estatisticas = carregar_estatisticas()
 
 # Comando secreto para ver relatório (defina sua senha)
 COMANDO_RELATORIO = os.getenv('COMANDO_RELATORIO', 'admin/relatorio')
@@ -99,13 +134,56 @@ def gerar_relatorio():
     
     if usuarios_hoje > 0:
         for idx, numero in enumerate(estatisticas["conversas_hoje"], 1):
-            # Oculta parte do número por privacidade
-            numero_oculto = numero[:4] + "****" + numero[-2:] if len(numero) > 6 else numero
-            relatorio += f"\n{idx}. {numero_oculto}"
+            # Mostra número completo sem censura
+            relatorio += f"\n{idx}. {numero}"
     else:
         relatorio += "\nNenhum usuário hoje ainda."
     
     relatorio += f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Relatório gerado com sucesso!"
+    
+    return relatorio
+
+def gerar_relatorio_completo(senha_admin):
+    """Gera relatório COM números completos - APENAS COM SENHA"""
+    # Senha de administrador (configure via variável de ambiente)
+    SENHA_ADMIN = os.getenv('SENHA_ADMIN_RELATORIO', 'admin123')
+    
+    if senha_admin != SENHA_ADMIN:
+        return "❌ *ACESSO NEGADO*\n\nSenha incorreta!"
+    
+    from datetime import date
+    
+    hoje = str(date.today())
+    usuarios_hoje = len(estatisticas["conversas_hoje"])
+    
+    relatorio = f"""📊 *RELATÓRIO COMPLETO - BOT 99FOOD*
+⚠️ *CONFIDENCIAL - DADOS SEM CENSURA*
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📅 *Data:* {hoje}
+
+👥 *USUÁRIOS HOJE:*
+• Total de contatos: {usuarios_hoje}
+
+📈 *ESTATÍSTICAS GERAIS:*
+• Total de conversas: {estatisticas['total_conversas']}
+• Conversas finalizadas: {estatisticas['conversas_finalizadas']}
+• Cupons enviados: {estatisticas['cupons_enviados']}
+• Tutoriais enviados: {estatisticas['tutoriais_enviados']}
+• Usuários que entraram no grupo: {estatisticas['usuarios_grupo']}
+
+🔄 *USUÁRIOS ATIVOS AGORA:*
+• Em conversa: {len(user_states)}
+
+📱 *NÚMEROS COMPLETOS DE HOJE:*"""
+    
+    if usuarios_hoje > 0:
+        for idx, numero in enumerate(estatisticas["conversas_hoje"], 1):
+            relatorio += f"\n{idx}. {numero}"
+    else:
+        relatorio += "\nNenhum usuário hoje ainda."
+    
+    relatorio += f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━\n⚠️ Dados confidenciais - Use com responsabilidade!"
     
     return relatorio
 
@@ -592,6 +670,14 @@ def processar_mensagem(number, message):
         print("   📊 DETECTADO: Comando de relatório!")
         relatorio = gerar_relatorio()
         send_text(number, relatorio)
+        return
+    
+    # ⭐ COMANDO SECRETO: Relatório completo COM senha
+    if msg.startswith(COMANDO_RELATORIO.upper() + " "):
+        senha = msg.split(" ", 1)[1] if len(msg.split(" ")) > 1 else ""
+        print(f"   🔐 DETECTADO: Comando de relatório COMPLETO com senha")
+        relatorio_completo = gerar_relatorio_completo(senha)
+        send_text(number, relatorio_completo)
         return
     
     # ⭐ VERIFICAÇÃO: Pergunta sobre cupom (funciona em qualquer estado)
@@ -1140,18 +1226,296 @@ def resetar_usuario(number):
             "mensagem": "Usuário não tinha estado ativo."
         })
 
+@app.route('/stats/reset', methods=['GET'])
+def resetar_estatisticas():
+    """Reseta todas as estatísticas (USE COM CUIDADO!)"""
+    global estatisticas
+    
+    # Backup das estatísticas antigas
+    backup = estatisticas.copy()
+    
+    # Reseta estatísticas
+    estatisticas = {
+        "total_conversas": 0,
+        "conversas_hoje": [],
+        "conversas_finalizadas": 0,
+        "cupons_enviados": 0,
+        "tutoriais_enviados": 0,
+        "usuarios_grupo": 0,
+        "usuarios_por_data": {}
+    }
+    
+    salvar_estatisticas()
+    
+    return jsonify({
+        "status": "resetado",
+        "mensagem": "Todas as estatísticas foram zeradas!",
+        "backup_anterior": backup
+    })
+
+@app.route('/stats/view', methods=['GET'])
+def ver_estatisticas_json():
+    """Retorna estatísticas em formato JSON"""
+    from datetime import date
+    
+    hoje = str(date.today())
+    
+    return jsonify({
+        "data_atual": hoje,
+        "usuarios_hoje": len(estatisticas["conversas_hoje"]),
+        "usuarios_ativos": len(user_states),
+        "estatisticas": estatisticas,
+        "arquivo": STATS_FILE,
+        "arquivo_existe": os.path.exists(STATS_FILE),
+        "aviso": "Números censurados por privacidade. Use /stats/full?senha=SUA_SENHA para ver completo"
+    })
+
+@app.route('/stats/full', methods=['GET'])
+def ver_estatisticas_completas():
+    """Retorna estatísticas COM números completos - PROTEGIDO POR SENHA"""
+    from datetime import date
+    
+    # Senha de administrador
+    SENHA_ADMIN = os.getenv('SENHA_ADMIN_RELATORIO', 'admin123')
+    senha_fornecida = request.args.get('senha', '')
+    
+    if senha_fornecida != SENHA_ADMIN:
+        return jsonify({
+            "erro": "ACESSO NEGADO",
+            "mensagem": "Senha incorreta ou não fornecida",
+            "uso": "GET /stats/full?senha=SUA_SENHA"
+        }), 403
+    
+    hoje = str(date.today())
+    
+    return jsonify({
+        "aviso": "⚠️ DADOS CONFIDENCIAIS - Números completos sem censura",
+        "data_atual": hoje,
+        "usuarios_hoje": len(estatisticas["conversas_hoje"]),
+        "usuarios_ativos": len(user_states),
+        "numeros_completos_hoje": estatisticas["conversas_hoje"],
+        "estatisticas": estatisticas,
+        "arquivo": STATS_FILE,
+        "arquivo_existe": os.path.exists(STATS_FILE)
+    })
+
+@app.route('/relatorio/full', methods=['GET'])
+def relatorio_web_completo():
+    """Acessa relatório via web COM números completos - PROTEGIDO"""
+    from datetime import date
+    
+    # Senha de administrador
+    SENHA_ADMIN = os.getenv('SENHA_ADMIN_RELATORIO', 'admin123')
+    senha_fornecida = request.args.get('senha', '')
+    
+    if senha_fornecida != SENHA_ADMIN:
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Acesso Negado</title>
+            <style>
+                body { 
+                    font-family: Arial; 
+                    text-align: center; 
+                    padding: 50px;
+                    background: #f5f5f5;
+                }
+                .error {
+                    background: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    margin: 0 auto;
+                }
+                h1 { color: #dc3545; }
+                code { 
+                    background: #f8f9fa; 
+                    padding: 5px 10px; 
+                    border-radius: 5px;
+                    display: block;
+                    margin: 20px 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="error">
+                <h1>🔒 Acesso Negado</h1>
+                <p>Senha incorreta ou não fornecida.</p>
+                <p><strong>Uso correto:</strong></p>
+                <code>/relatorio/full?senha=SUA_SENHA</code>
+            </div>
+        </body>
+        </html>
+        """, 403
+    
+    hoje = str(date.today())
+    usuarios_hoje = len(estatisticas["conversas_hoje"])
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Relatório COMPLETO Bot 99Food</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }}
+            .container {{
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            h1 {{
+                color: #FF6B00;
+                border-bottom: 3px solid #FF6B00;
+                padding-bottom: 10px;
+            }}
+            .warning {{
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 5px;
+            }}
+            .stat-box {{
+                background: #f9f9f9;
+                padding: 15px;
+                margin: 15px 0;
+                border-left: 4px solid #FF6B00;
+                border-radius: 5px;
+            }}
+            .stat-title {{
+                font-weight: bold;
+                color: #333;
+                font-size: 14px;
+                margin-bottom: 5px;
+            }}
+            .stat-value {{
+                font-size: 24px;
+                color: #FF6B00;
+                font-weight: bold;
+            }}
+            .numero {{
+                background: #e3f2fd;
+                padding: 5px 10px;
+                margin: 5px;
+                display: inline-block;
+                border-radius: 5px;
+                font-family: monospace;
+                font-weight: bold;
+                color: #1976d2;
+            }}
+            .timestamp {{
+                color: #999;
+                font-size: 12px;
+                text-align: right;
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>📊 Relatório COMPLETO do Bot 99Food</h1>
+            
+            <div class="warning">
+                <strong>⚠️ AVISO DE CONFIDENCIALIDADE</strong><br>
+                Este relatório contém números de telefone completos SEM censura.<br>
+                Use estas informações com responsabilidade e respeite a privacidade dos usuários.
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">📅 Data</div>
+                <div class="stat-value">{hoje}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">👥 Usuários Hoje</div>
+                <div class="stat-value">{usuarios_hoje}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">📈 Total de Conversas</div>
+                <div class="stat-value">{estatisticas['total_conversas']}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">✅ Conversas Finalizadas</div>
+                <div class="stat-value">{estatisticas['conversas_finalizadas']}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">🎁 Cupons Enviados</div>
+                <div class="stat-value">{estatisticas['cupons_enviados']}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">🎹 Tutoriais Enviados</div>
+                <div class="stat-value">{estatisticas['tutoriais_enviados']}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">👥 Usuários no Grupo</div>
+                <div class="stat-value">{estatisticas['usuarios_grupo']}</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-title">🔄 Em Conversa Agora</div>
+                <div class="stat-value">{len(user_states)}</div>
+            </div>
+            
+            <h2>📱 Números COMPLETOS de Hoje:</h2>
+            <div class="stat-box">
+    """
+    
+    if usuarios_hoje > 0:
+        for idx, numero in enumerate(estatisticas["conversas_hoje"], 1):
+            html += f'<span class="numero">{idx}. {numero}</span><br>'
+    else:
+        html += '<p>Nenhum usuário hoje ainda.</p>'
+    
+    html += f"""
+            </div>
+            
+            <div class="timestamp">
+                Atualizado em: {datetime.now().strftime('%d/%m/%Y às %H:%M:%S')}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
 @app.route('/health', methods=['GET'])
 def health():
     """Status do servidor"""
     return jsonify({
         "status": "online",
-        "version": "4.0-anti-loop-com-confirmacoes-RELATORIO-FIXADO",
+        "version": "4.1-com-persistencia-de-dados",
         "usuarios_ativos": len(user_states),
         "estados_usuarios": {k: v for k, v in user_states.items()},
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
         "api_host": API_HOST,
         "cupom_configurado": CUPOM_DESCONTO,
         "comando_relatorio": COMANDO_RELATORIO,
+        "arquivo_stats": STATS_FILE,
+        "arquivo_stats_existe": os.path.exists(STATS_FILE),
+        "estatisticas_atuais": {
+            "total_conversas": estatisticas["total_conversas"],
+            "usuarios_hoje": len(estatisticas["conversas_hoje"]),
+            "conversas_finalizadas": estatisticas["conversas_finalizadas"],
+            "cupons_enviados": estatisticas["cupons_enviados"]
+        },
         "rotas_disponiveis": [
             "/webhook", 
             "/webhook/text", 
@@ -1166,6 +1530,8 @@ def health():
             "/relatorio",
             "/check-video",
             "/reset/<number>",
+            "/stats/view (NOVO)",
+            "/stats/reset (NOVO)",
             "/health"
         ],
         "timestamp": datetime.now().isoformat()
@@ -1177,8 +1543,21 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "4.0-anti-loop-com-confirmacoes-RELATORIO-FIXADO",
+        "versao": "4.1-com-persistencia-de-dados",
         "usuarios_ativos": len(user_states),
+        "estatisticas_atuais": {
+            "total_conversas": estatisticas["total_conversas"],
+            "usuarios_hoje": len(estatisticas["conversas_hoje"]),
+            "conversas_finalizadas": estatisticas["conversas_finalizadas"],
+            "cupons_enviados": estatisticas["cupons_enviados"],
+            "tutoriais_enviados": estatisticas["tutoriais_enviados"],
+            "usuarios_grupo": estatisticas["usuarios_grupo"]
+        },
+        "persistencia": {
+            "arquivo": STATS_FILE,
+            "existe": os.path.exists(STATS_FILE),
+            "descricao": "Estatísticas são salvas automaticamente em arquivo JSON"
+        },
         "rotas": {
             "webhook_principal": "/webhook",
             "webhook_alternativo": "/webhook/text",
@@ -1189,10 +1568,12 @@ def home():
             "teste_cupom": "/test-cupom/<numero>",
             "teste_ja_usou": "/test-ja-usou/<numero>",
             "teste_pergunta_cupom": "/test-pergunta-cupom/<numero>",
-            "teste_relatorio": "/test-relatorio/<numero> (NOVO!)",
+            "teste_relatorio": "/test-relatorio/<numero>",
             "relatorio_web": "/relatorio (acesso via navegador)",
             "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
+            "ver_stats_json": "/stats/view (NOVO - JSON com todas stats)",
+            "resetar_stats": "/stats/reset (NOVO - CUIDADO: apaga tudo!)",
             "health_check": "/health"
         },
         "configuracao": {
@@ -1203,6 +1584,15 @@ def home():
             "video_url": VIDEO_TUTORIAL_URL,
             "cupom": CUPOM_DESCONTO,
             "comando_relatorio": COMANDO_RELATORIO
+        },
+        "novidades_v4_1": {
+            "persistencia_dados": "Estatísticas agora são salvas em arquivo JSON",
+            "auto_save": "Salvamento automático após cada registro",
+            "carregamento_auto": "Dados carregados automaticamente ao iniciar servidor",
+            "novos_endpoints": [
+                "/stats/view - Ver estatísticas em JSON",
+                "/stats/reset - Resetar todas as estatísticas"
+            ]
         },
         "correcao_v4": {
             "problema_identificado": "Comando admin/relatorio não funcionava",
@@ -1215,25 +1605,11 @@ def home():
             "opcao_2_nunca_usei": "Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP",
             "opcao_3_quero_cupom": "Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP"
         },
-        "protecoes_anti_loop": {
-            "estados_confirmacao": "AGUARDANDO_CONFIRMACAO_NOVA_CONTA e AGUARDANDO_CONFIRMACAO_TUTORIAL",
-            "mensagens_claras": "Pede para usuário 'digitar qualquer coisa' para continuar",
-            "sem_auto_envio": "Não envia múltiplas mensagens seguidas",
-            "logs_detalhados": "Todos os estados são logados para debug"
-        },
         "sistema_estatisticas": {
-            "comando_whatsapp": COMANDO_RELATORIO + " (envie essa mensagem no WhatsApp - AGORA FUNCIONA!)",
+            "comando_whatsapp": COMANDO_RELATORIO + " (envie essa mensagem no WhatsApp)",
             "url_web": "/relatorio (acesse pelo navegador)",
-            "url_teste": "/test-relatorio/<numero> (testa o comando)",
-            "metricas": [
-                "Total de conversas",
-                "Usuários hoje",
-                "Conversas finalizadas",
-                "Cupons enviados",
-                "Tutoriais enviados",
-                "Usuários que entraram no grupo",
-                "Usuários ativos agora"
-            ]
+            "url_json": "/stats/view (dados em JSON)",
+            "persistencia": "Dados salvos automaticamente e resistem a reinicializações"
         }
     })
 
@@ -1242,19 +1618,28 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔═══════════════════════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - V4.0 ANTI-LOOP + RELATÓRIO CORRIGIDO
+    🤖 CHATBOT 99FOOD - V4.1 COM PERSISTÊNCIA DE DADOS
     ╚═══════════════════════════════════════════════════════════╝
     
     ✅ Servidor rodando com PROTEÇÃO ANTI-LOOP!
     ✅ AGUARDA confirmação do usuário entre etapas
     ✅ Comando """ + COMANDO_RELATORIO + """ FUNCIONANDO!
-    ✅ Sem envio de múltiplas mensagens seguidas
-    ✅ Estados de confirmação implementados
+    ✅ 💾 PERSISTÊNCIA DE DADOS ATIVADA!
+    ✅ Estatísticas salvas automaticamente em JSON
     
-    🔧 CORREÇÃO APLICADA:
-    ✅ Comando de relatório movido para PRIORIDADE MÁXIMA
-    ✅ Verificação antes de qualquer outra lógica
-    ✅ Agora funciona mesmo sem estado ativo
+    📊 ESTATÍSTICAS CARREGADAS:
+    • Total de conversas: """ + str(estatisticas["total_conversas"]) + """
+    • Usuários hoje: """ + str(len(estatisticas["conversas_hoje"])) + """
+    • Cupons enviados: """ + str(estatisticas["cupons_enviados"]) + """
+    • Tutoriais enviados: """ + str(estatisticas["tutoriais_enviados"]) + """
+    • Arquivo: """ + STATS_FILE + """
+    • Existe: """ + ("✅ SIM" if os.path.exists(STATS_FILE) else "❌ NÃO (será criado)") + """
+    
+    🆕 NOVIDADES V4.1:
+    ✅ Dados persistem entre reinicializações
+    ✅ Salvamento automático após cada ação
+    ✅ Carregamento automático ao iniciar
+    ✅ Novas rotas: /stats/view e /stats/reset
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -1266,10 +1651,12 @@ if __name__ == '__main__':
     • GET  /test-cupom/<numero> - Testa envio de cupom
     • GET  /test-ja-usou/<numero> - Testa fluxo "já usei cupom"
     • GET  /test-pergunta-cupom/<numero> - Testa detecção de perguntas
-    • GET  /test-relatorio/<numero> - Testa comando relatório (NOVO!)
-    • GET  /relatorio - Visualiza estatísticas no navegador
+    • GET  /test-relatorio/<numero> - Testa comando relatório
+    • GET  /relatorio - Visualiza estatísticas (HTML)
+    • GET  /stats/view - Estatísticas em JSON (NOVO!)
+    • GET  /stats/reset - Reseta estatísticas (NOVO!)
     • GET  /check-video - Verifica URL do vídeo
-    • GET  /reset/<numero> - Reseta estado
+    • GET  /reset/<numero> - Reseta estado do usuário
     • GET  /health - Status detalhado
     • GET  / - Informações do bot
     
@@ -1283,15 +1670,20 @@ if __name__ == '__main__':
     
     📊 Comando Relatório: """ + COMANDO_RELATORIO + """
     
-    🆕 COMO TESTAR O RELATÓRIO:
-    1. Via WhatsApp: Envie """ + COMANDO_RELATORIO + """
-    2. Via Web: Acesse /relatorio no navegador
-    3. Via API: GET /test-relatorio/<seu_numero>
+    💾 PERSISTÊNCIA DE DADOS:
+    • Arquivo: """ + STATS_FILE + """
+    • Auto-save: ✅ Ativado
+    • Dados sobrevivem a: Reinicializações, deploys, crashes
     
-    🔍 ORDEM DE VERIFICAÇÃO (CORRIGIDA):
-    1º → Comando relatório (PRIORIDADE MÁXIMA)
-    2º → Pergunta sobre cupom
-    3º → Fluxo normal do chatbot
+    📊 COMO VER ESTATÍSTICAS:
+    1. WhatsApp: """ + COMANDO_RELATORIO + """
+    2. Web (HTML): /relatorio
+    3. API (JSON): /stats/view
+    4. Teste: /test-relatorio/<numero>
+    
+    ⚠️ GERENCIAR DADOS:
+    • Ver tudo: GET /stats/view
+    • Resetar: GET /stats/reset (CUIDADO!)
     
     ╚═══════════════════════════════════════════════════════════╝
     """)
