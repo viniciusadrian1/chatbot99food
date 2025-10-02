@@ -51,9 +51,21 @@ def send_menu(number, text, footer, button_text, choices):
     
     try:
         response = requests.post(url, json=payload, headers=headers)
-        print(f"✅ Status: {response.status_code}")
+        response_data = response.json()
+        
+        print(f"✅ Status HTTP: {response.status_code}")
         print(f"📥 Resposta: {response.text}")
-        return response.json()
+        
+        # Verifica se a mensagem foi enviada ou está pendente
+        msg_status = response_data.get('status', 'unknown')
+        if msg_status == 'Pending':
+            print("⚠️  AVISO: Mensagem ficou PENDENTE!")
+            print("   Possíveis causas:")
+            print("   • WhatsApp desconectado no painel uazapiGO")
+            print("   • Instância com problemas de conexão")
+            print("   • Número bloqueado ou inválido")
+        
+        return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar menu: {e}")
         import traceback
@@ -81,9 +93,16 @@ def send_text(number, text):
     
     try:
         response = requests.post(url, json=payload, headers=headers)
-        print(f"✅ Status: {response.status_code}")
+        response_data = response.json()
+        
+        print(f"✅ Status HTTP: {response.status_code}")
         print(f"📥 Resposta: {response.text}")
-        return response.json()
+        
+        msg_status = response_data.get('status', 'unknown')
+        if msg_status == 'Pending':
+            print("⚠️  AVISO: Mensagem ficou PENDENTE!")
+        
+        return response_data
     except Exception as e:
         print(f"❌ ERRO ao enviar texto: {e}")
         import traceback
@@ -366,6 +385,23 @@ def testar(number):
     print(f"\n🧪 TESTE MANUAL iniciado para {number}")
     iniciar_conversa(number)
     return jsonify({"status": "Iniciado", "number": number})
+
+@app.route('/test-text/<number>', methods=['GET'])
+def testar_texto(number):
+    """Testa envio de texto simples"""
+    print(f"\n🧪 TESTE DE TEXTO SIMPLES para {number}")
+    
+    # Remove caracteres especiais se tiver
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    print(f"📱 Número limpo: {number_clean}")
+    
+    result = send_text(number_clean, "🧪 Teste de conexão - Se você recebeu isso, o bot está funcionando!")
+    
+    return jsonify({
+        "status": "Enviado",
+        "number": number_clean,
+        "result": result
+    })
 
 @app.route('/health', methods=['GET'])
 def health():
