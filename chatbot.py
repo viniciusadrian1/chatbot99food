@@ -194,21 +194,18 @@ def send_video(number, video_url, caption=""):
         else:
             print(f"   ⚠️ Status HTTP não é 200: {response.status_code}")
         
-        # Se falhar, tenta enviar como link
-        print(f"\n⚠️ FALLBACK: Enviando vídeo como link de texto...")
-        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
-        return {"status": "sent_as_link", "url": video_url}
+        # Se falhar, retorna erro sem enviar link como fallback
+        print(f"\n❌ Falha ao enviar vídeo - não enviando fallback")
+        return {"status": "error", "message": "Falha ao enviar vídeo"}
         
     except requests.exceptions.Timeout:
         print(f"   ⏱️ TIMEOUT - API não respondeu em 20s")
-        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
-        return {"status": "timeout", "url": video_url}
+        return {"status": "timeout"}
         
     except Exception as e:
         print(f"   ❌ EXCEÇÃO: {e}")
         import traceback
         traceback.print_exc()
-        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
         return {"status": "error", "error": str(e)}
 
 # ==================== FLUXO DO CHATBOT ====================
@@ -287,11 +284,18 @@ def enviar_tutorial(number):
     """Envia vídeo tutorial"""
     send_text(number, "🔹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
     
+    # Aguarda 2 segundos antes de enviar o vídeo
+    import time
+    time.sleep(2)
+    
     send_video(
         number=number,
         video_url=VIDEO_TUTORIAL_URL,
         caption="🎬 Tutorial: Como usar cupom no 99Food"
     )
+    
+    # Aguarda 3 segundos antes de enviar os botões
+    time.sleep(3)
     
     result = send_buttons(
         number=number,
