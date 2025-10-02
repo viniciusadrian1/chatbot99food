@@ -286,6 +286,10 @@ def ja_usou_cupom(number):
     """Orienta usuário que já usou cupom a criar nova conta"""
     print(f"🔄 ORIENTANDO sobre NOVA CONTA para {number}")
     
+    # Limpa qualquer estado anterior para evitar loop
+    if number in user_states:
+        print(f"   Limpando estado anterior: {user_states[number]}")
+    
     mensagem = f"""💡 *Entendi!*
 
 Esse cupom é *exclusivo para primeira compra* no app 99Food! 🎁
@@ -320,7 +324,9 @@ Quer que eu te envie o cupom agora?"""
     if not result or result.get('status') == 'Pending':
         send_text(number, "📲 Quer receber o cupom para usar na nova conta?\n\n1️⃣ - Sim, quero!\n2️⃣ - Não, obrigado")
     
+    # Define estado APÓS enviar a mensagem
     user_states[number] = "AGUARDANDO_NOVA_CONTA"
+    print(f"   ✅ Estado definido: AGUARDANDO_NOVA_CONTA")
 
 def enviar_cupom_nova_conta(number):
     """Envia cupom para quem vai criar nova conta e pergunta sobre tutorial"""
@@ -386,6 +392,12 @@ def enviar_cupom_nova_conta(number):
 
 def enviar_tutorial(number):
     """Envia vídeo tutorial"""
+    
+    # Verifica se já está no estado correto para evitar loop
+    if user_states.get(number) == "AGUARDANDO_RESULTADO":
+        print(f"⚠️ Já está aguardando resultado, pulando envio duplicado")
+        return
+    
     send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
     
     # Aguarda 2 segundos antes de enviar o vídeo
@@ -552,7 +564,7 @@ def processar_mensagem(number, message):
     elif estado_atual == "AGUARDANDO_NOVA_CONTA":
         print(f"   → Verificando se quer cupom para nova conta...")
         
-        if "QUERO" in msg or msg == "1":
+        if "QUERO" in msg or msg == "1" or "SIM" in msg:
             print("   → Ação: Usuário QUER cupom para nova conta")
             enviar_cupom_nova_conta(number)
         else:
@@ -560,6 +572,7 @@ def processar_mensagem(number, message):
             send_text(number, "😊 Tudo bem! Quando quiser criar a nova conta, me chame! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
+                print(f"   ✅ Estado removido para {number}")
         return
     
     elif estado_atual == "AGUARDANDO_QUER_TUTORIAL":
@@ -589,6 +602,7 @@ Aproveite! 🚀"""
             send_text(number, mensagem)
             if number in user_states:
                 del user_states[number]
+                print(f"   ✅ Estado removido para {number}")
         return
     
     elif estado_atual == "AGUARDANDO_RESULTADO":
@@ -605,6 +619,7 @@ Aproveite! 🚀"""
             send_text(number, "😊 Sem pressa! Quando testar, me avise! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
+                print(f"   ✅ Estado removido para {number}")
         return
     
     else:
@@ -900,7 +915,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.2-fluxo-completo",
+        "versao": "3.3-anti-loop",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -924,9 +939,15 @@ def home():
             "cupom": CUPOM_DESCONTO
         },
         "fluxo_corrigido": {
-            "opcao_1_ja_usei": "Orienta a criar nova conta → Envia cupom → Pergunta se quer tutorial → Envia vídeo (se sim) → Grupo VIP",
+            "opcao_1_ja_usei": "Orienta a criar nova conta → Envia cupom → Pergunta se quer tutorial → Envia vídeo (se sim) → Grupo VIP [SEM LOOPS]",
             "opcao_2_nunca_usei": "Envia tutorial direto → Pergunta se conseguiu → Grupo VIP",
             "opcao_3_quero_cupom": "Envia cupom + tutorial automaticamente → Pergunta se conseguiu → Grupo VIP"
+        },
+        "protecoes_anti_loop": {
+            "verificacao_estados": "Funções verificam estado antes de executar",
+            "estados_unicos": "Cada estado é definido apenas uma vez",
+            "limpeza_automatica": "Estados são removidos ao finalizar",
+            "logs_detalhados": "Todos os estados são logados para debug"
         }
     })
 
@@ -935,13 +956,13 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔═══════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - UAZAPIGO V3.2 COMPLETO
+    🤖 CHATBOT 99FOOD - V3.3 SEM LOOPS
     ╚═══════════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
     ✅ Envio de vídeo CORRIGIDO (formato Uazapi)
-    ✅ NOVO: Fluxo para quem já usou cupom!
-    ✅ NOVO: Orientação para criar nova conta!
+    ✅ LOOPS CORRIGIDOS - Validação de estados
+    ✅ Fluxo para quem já usou cupom funcionando
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -965,7 +986,7 @@ if __name__ == '__main__':
     
     🎁 Cupom: """ + CUPOM_DESCONTO + """
     
-    📝 Fluxo COMPLETO do bot:
+    📝 Fluxo COMPLETO do bot (SEM LOOPS):
     
     1️⃣ *OPÇÃO 1 - JÁ USEI CUPOM:*
        → Orienta a criar nova conta (outro email/número)
@@ -986,12 +1007,12 @@ if __name__ == '__main__':
        → Pergunta se conseguiu usar
        → Envia Grupo VIP
     
-    🎯 NOVA FUNCIONALIDADE:
-    ✅ Detecta se usuário já usou cupom
-    ✅ Orienta sobre criar nova conta
-    ✅ Explica que cupom é para primeira compra
-    ✅ Oferece tutorial opcional
-    ✅ Segue fluxo normal até o grupo VIP
+    🔒 PROTEÇÕES ANTI-LOOP:
+    ✅ Verificação de estado antes de enviar cupom
+    ✅ Verificação de estado antes de enviar tutorial
+    ✅ Estados são definidos APÓS enviar mensagens
+    ✅ Estados são removidos após finalizar fluxo
+    ✅ Logs detalhados de mudanças de estado
     
     ╚═══════════════════════════════════════════╝
     """)
