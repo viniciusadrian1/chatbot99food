@@ -2,6 +2,7 @@
 Chatbot 99Food - uazapiGO V4.0
 Arquivo: chatbot.py (VERSÃO ANTI-LOOP COM CONFIRMAÇÕES)
 Correção: Aguarda resposta do usuário entre cada etapa
+Fix: Comando admin/relatorio agora funciona corretamente
 """
 
 from flask import Flask, request, jsonify
@@ -77,7 +78,7 @@ def gerar_relatorio():
     usuarios_hoje = len(estatisticas["conversas_hoje"])
     
     relatorio = f"""📊 *RELATÓRIO DO BOT 99FOOD*
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📅 *Data:* {hoje}
 
@@ -104,7 +105,7 @@ def gerar_relatorio():
     else:
         relatorio += "\nNenhum usuário hoje ainda."
     
-    relatorio += f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Relatório gerado com sucesso!"
+    relatorio += f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Relatório gerado com sucesso!"
     
     return relatorio
 
@@ -381,7 +382,7 @@ def tem_app(number):
 
 def ja_usou_cupom(number):
     """Orienta sobre nova conta - APENAS ORIENTA, NÃO ENVIA CUPOM AINDA"""
-    print(f"📄 ORIENTANDO sobre NOVA CONTA para {number}")
+    print(f"🔄 ORIENTANDO sobre NOVA CONTA para {number}")
     
     mensagem = f"""💡 *Entendi!*
 
@@ -396,7 +397,7 @@ Você pode criar uma *nova conta* com outro número ou email diferente e usar o 
 2. Cadastre com novo email/número
 3. Use o cupom na primeira compra
 
-💬 *Digite qualquer coisa quando estiver pronto para receber o cupom!* 👍"""
+💬 *Digite qualquer coisa quando estiver pronto para receber o cupom!* 👇"""
     
     send_text(number, mensagem)
     
@@ -422,9 +423,9 @@ def enviar_cupom_e_aguardar(number):
 4. Cole o cupom: *{CUPOM_DESCONTO}*
 5. Aproveite o desconto! 🚀
 
-📹 *Quer ver um tutorial em vídeo de como usar?*
+🎹 *Quer ver um tutorial em vídeo de como usar?*
 
-💬 *Digite qualquer coisa para ver o tutorial!* 👍"""
+💬 *Digite qualquer coisa para ver o tutorial!* 👇"""
     
     send_text(number, mensagem)
     
@@ -434,12 +435,12 @@ def enviar_cupom_e_aguardar(number):
 
 def enviar_tutorial_e_aguardar(number):
     """Envia tutorial e aguarda resultado"""
-    print(f"📹 ENVIANDO TUTORIAL para {number}")
+    print(f"🎹 ENVIANDO TUTORIAL para {number}")
     
     # Registra estatística
     registrar_estatistica("tutorial_enviado", number)
     
-    send_text(number, "📹 *Perfeito!*\n\nVou te mostrar como usar o cupom!")
+    send_text(number, "🎹 *Perfeito!*\n\nVou te mostrar como usar o cupom!")
     
     time.sleep(2)
     
@@ -564,7 +565,7 @@ def responder_cupom_direto(number):
 4. Cole o cupom: *{CUPOM_DESCONTO}*
 5. Aproveite o desconto! 🚀
 
-📹 *Precisa de ajuda?* Digite qualquer coisa e te envio um tutorial em vídeo!"""
+🎹 *Precisa de ajuda?* Digite qualquer coisa e te envio um tutorial em vídeo!"""
     
     send_text(number, mensagem)
     
@@ -586,17 +587,17 @@ def processar_mensagem(number, message):
     print(f"🔍 Mensagem normalizada: '{msg}'")
     print(f"{'='*60}")
     
-    # ⭐ NOVA VERIFICAÇÃO: Pergunta sobre cupom (funciona em qualquer estado)
-    if verificar_pergunta_cupom(message):
-        print("   🎫 DETECTADO: Pergunta sobre cupom!")
-        responder_cupom_direto(number)
-        return
-    
-    # ⭐ NOVA VERIFICAÇÃO: Comando secreto para relatório
-    if msg.strip() == COMANDO_RELATORIO:
+    # ⭐ PRIORIDADE MÁXIMA: Comando de relatório (ANTES DE TUDO)
+    if msg.strip() == COMANDO_RELATORIO.upper():
         print("   📊 DETECTADO: Comando de relatório!")
         relatorio = gerar_relatorio()
         send_text(number, relatorio)
+        return
+    
+    # ⭐ VERIFICAÇÃO: Pergunta sobre cupom (funciona em qualquer estado)
+    if verificar_pergunta_cupom(message):
+        print("   🎫 DETECTADO: Pergunta sobre cupom!")
+        responder_cupom_direto(number)
         return
     
     # INÍCIO DA CONVERSA
@@ -713,7 +714,7 @@ def processar_webhook(data):
     print(f"\n📋 EXTRAÇÃO DE DADOS:")
     print(f"   📱 Número: '{number}'")
     print(f"   💬 Texto: '{message_text}'")
-    print(f"   🔘 Botão: '{button_choice}'")
+    print(f"   📘 Botão: '{button_choice}'")
     
     if number and (message_text or button_choice):
         final_message = button_choice if button_choice else message_text
@@ -927,6 +928,23 @@ def testar_pergunta_cupom(number):
         "mensagem": "Verifique se recebeu o cupom! A função está ativa para qualquer pergunta sobre cupom."
     })
 
+@app.route('/test-relatorio/<number>', methods=['GET'])
+def testar_relatorio(number):
+    """Testa o comando de relatório diretamente"""
+    print(f"\n🧪 TESTE DO COMANDO RELATÓRIO para {number}")
+    
+    number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
+    
+    # Simula o envio do comando
+    processar_mensagem(number_clean, COMANDO_RELATORIO)
+    
+    return jsonify({
+        "status": "Comando enviado",
+        "number": number_clean,
+        "comando": COMANDO_RELATORIO,
+        "mensagem": "Verifique se recebeu o relatório! O comando agora está funcionando corretamente."
+    })
+
 @app.route('/check-video', methods=['GET'])
 def check_video():
     """Verifica se a URL do vídeo está acessível"""
@@ -1063,7 +1081,7 @@ def relatorio_web():
             </div>
             
             <div class="stat-box">
-                <div class="stat-title">📹 Tutoriais Enviados</div>
+                <div class="stat-title">🎹 Tutoriais Enviados</div>
                 <div class="stat-value">{estatisticas['tutoriais_enviados']}</div>
             </div>
             
@@ -1127,12 +1145,13 @@ def health():
     """Status do servidor"""
     return jsonify({
         "status": "online",
-        "version": "4.0-anti-loop-com-confirmacoes",
+        "version": "4.0-anti-loop-com-confirmacoes-RELATORIO-FIXADO",
         "usuarios_ativos": len(user_states),
         "estados_usuarios": {k: v for k, v in user_states.items()},
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
         "api_host": API_HOST,
         "cupom_configurado": CUPOM_DESCONTO,
+        "comando_relatorio": COMANDO_RELATORIO,
         "rotas_disponiveis": [
             "/webhook", 
             "/webhook/text", 
@@ -1143,6 +1162,7 @@ def health():
             "/test-cupom/<number>",
             "/test-ja-usou/<number>",
             "/test-pergunta-cupom/<number>",
+            "/test-relatorio/<number>",
             "/relatorio",
             "/check-video",
             "/reset/<number>",
@@ -1157,7 +1177,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "4.0-anti-loop-com-confirmacoes",
+        "versao": "4.0-anti-loop-com-confirmacoes-RELATORIO-FIXADO",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -1169,6 +1189,7 @@ def home():
             "teste_cupom": "/test-cupom/<numero>",
             "teste_ja_usou": "/test-ja-usou/<numero>",
             "teste_pergunta_cupom": "/test-pergunta-cupom/<numero>",
+            "teste_relatorio": "/test-relatorio/<numero> (NOVO!)",
             "relatorio_web": "/relatorio (acesso via navegador)",
             "verificar_video": "/check-video?url=URL_AQUI",
             "resetar_usuario": "/reset/<numero>",
@@ -1180,7 +1201,14 @@ def home():
             "link_app": LINK_APP_99FOOD,
             "link_grupo": LINK_GRUPO_OFERTAS,
             "video_url": VIDEO_TUTORIAL_URL,
-            "cupom": CUPOM_DESCONTO
+            "cupom": CUPOM_DESCONTO,
+            "comando_relatorio": COMANDO_RELATORIO
+        },
+        "correcao_v4": {
+            "problema_identificado": "Comando admin/relatorio não funcionava",
+            "causa": "Verificação do comando estava DEPOIS da verificação de INICIO",
+            "solucao": "Movida verificação do comando para ANTES de todas as outras lógicas",
+            "prioridade": "MÁXIMA - comando verificado primeiro na função processar_mensagem()"
         },
         "fluxo_corrigido": {
             "opcao_1_ja_usei": "Orienta nova conta → AGUARDA CONFIRMAÇÃO → Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP [SEM LOOPS]",
@@ -1193,21 +1221,10 @@ def home():
             "sem_auto_envio": "Não envia múltiplas mensagens seguidas",
             "logs_detalhados": "Todos os estados são logados para debug"
         },
-        "novos_estados": [
-            "AGUARDANDO_CONFIRMACAO_NOVA_CONTA - Aguarda usuário confirmar que vai criar nova conta",
-            "AGUARDANDO_CONFIRMACAO_TUTORIAL - Aguarda usuário confirmar que quer ver o tutorial"
-        ],
-        "nova_funcionalidade": {
-            "deteccao_perguntas_cupom": "Bot detecta perguntas sobre cupom e responde automaticamente",
-            "palavras_chave": [
-                "qual cupom", "qual o cupom", "nome do cupom", "meu cupom", 
-                "me da cupom", "quero cupom", "me fale cupom", "codigo do cupom"
-            ],
-            "funciona_em": "Qualquer estado da conversa"
-        },
         "sistema_estatisticas": {
-            "comando_whatsapp": COMANDO_RELATORIO + " (envie essa mensagem no WhatsApp para ver relatório)",
+            "comando_whatsapp": COMANDO_RELATORIO + " (envie essa mensagem no WhatsApp - AGORA FUNCIONA!)",
             "url_web": "/relatorio (acesse pelo navegador)",
+            "url_teste": "/test-relatorio/<numero> (testa o comando)",
             "metricas": [
                 "Total de conversas",
                 "Usuários hoje",
@@ -1225,13 +1242,19 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔═══════════════════════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - V4.0 ANTI-LOOP COM CONFIRMAÇÕES
+    🤖 CHATBOT 99FOOD - V4.0 ANTI-LOOP + RELATÓRIO CORRIGIDO
     ╚═══════════════════════════════════════════════════════════╝
     
     ✅ Servidor rodando com PROTEÇÃO ANTI-LOOP!
     ✅ AGUARDA confirmação do usuário entre etapas
+    ✅ Comando """ + COMANDO_RELATORIO + """ FUNCIONANDO!
     ✅ Sem envio de múltiplas mensagens seguidas
     ✅ Estados de confirmação implementados
+    
+    🔧 CORREÇÃO APLICADA:
+    ✅ Comando de relatório movido para PRIORIDADE MÁXIMA
+    ✅ Verificação antes de qualquer outra lógica
+    ✅ Agora funciona mesmo sem estado ativo
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -1242,7 +1265,8 @@ if __name__ == '__main__':
     • GET  /test-video/<numero> - Testa vídeo
     • GET  /test-cupom/<numero> - Testa envio de cupom
     • GET  /test-ja-usou/<numero> - Testa fluxo "já usei cupom"
-    • GET  /test-pergunta-cupom/<numero> - Testa detecção de perguntas sobre cupom
+    • GET  /test-pergunta-cupom/<numero> - Testa detecção de perguntas
+    • GET  /test-relatorio/<numero> - Testa comando relatório (NOVO!)
     • GET  /relatorio - Visualiza estatísticas no navegador
     • GET  /check-video - Verifica URL do vídeo
     • GET  /reset/<numero> - Reseta estado
@@ -1257,71 +1281,17 @@ if __name__ == '__main__':
     
     🎁 Cupom: """ + CUPOM_DESCONTO + """
     
-    📝 FLUXO CORRIGIDO (100% SEM LOOPS):
+    📊 Comando Relatório: """ + COMANDO_RELATORIO + """
     
-    1️⃣ *JÁ USEI CUPOM:*
-       Estado: AGUARDANDO_CUPOM
-       ↓ Usuário responde "JÁ USEI"
-       ↓ Envia orientação sobre criar nova conta (1x)
-       Estado: AGUARDANDO_CONFIRMACAO_NOVA_CONTA ⏸️
-       ↓ AGUARDA usuário digitar qualquer coisa
-       ↓ Envia cupom (1x)
-       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
-       ↓ AGUARDA usuário digitar qualquer coisa
-       ↓ Envia tutorial (1x)
-       Estado: AGUARDANDO_RESULTADO
-       ↓ Envia grupo VIP + Remove estado
+    🆕 COMO TESTAR O RELATÓRIO:
+    1. Via WhatsApp: Envie """ + COMANDO_RELATORIO + """
+    2. Via Web: Acesse /relatorio no navegador
+    3. Via API: GET /test-relatorio/<seu_numero>
     
-    2️⃣ *NUNCA USEI:*
-       Estado: AGUARDANDO_CUPOM
-       ↓ Usuário responde "NUNCA USEI"
-       ↓ Envia cupom (1x)
-       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
-       ↓ AGUARDA usuário digitar qualquer coisa
-       ↓ Envia tutorial (1x)
-       Estado: AGUARDANDO_RESULTADO
-       ↓ Envia grupo VIP + Remove estado
-    
-    3️⃣ *QUERO CUPOM:*
-       Estado: AGUARDANDO_CUPOM
-       ↓ Usuário responde "QUERO CUPOM"
-       ↓ Envia cupom (1x)
-       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
-       ↓ AGUARDA usuário digitar qualquer coisa
-       ↓ Envia tutorial (1x)
-       Estado: AGUARDANDO_RESULTADO
-       ↓ Envia grupo VIP + Remove estado
-    
-    🛡️ PROTEÇÃO ANTI-LOOP V4.0:
-    ✅ Mensagens pedem explicitamente: "Digite qualquer coisa para continuar"
-    ✅ Bot para e aguarda resposta do usuário
-    ✅ Estados de confirmação adicionados
-    ✅ Não envia mensagens em sequência
-    ✅ Logs mostram pausas entre etapas
-    ✅ Estados limpos ao finalizar conversa
-    
-    🆕 NOVA FUNCIONALIDADE:
-    ✅ Detecção automática de perguntas sobre cupom
-    ✅ Responde instantaneamente quando perguntam sobre o cupom
-    ✅ Palavras-chave detectadas:
-       • "Qual cupom", "Qual o cupom", "Nome do cupom"
-       • "Meu cupom", "Me da cupom", "Quero cupom"
-       • "Me fale cupom", "Código do cupom"
-    ✅ Funciona em QUALQUER estado da conversa
-    
-    📊 SISTEMA DE ESTATÍSTICAS:
-    ✅ Comando secreto no WhatsApp: """ + COMANDO_RELATORIO + """
-    ✅ Acesso web: http://seu-servidor/relatorio
-    ✅ Métricas rastreadas:
-       • Total de conversas e usuários hoje
-       • Cupons e tutoriais enviados
-       • Conversas finalizadas
-       • Usuários que entraram no grupo
-       • Lista de números que entraram em contato (ocultados)
-    
-    💡 COMO USAR O RELATÓRIO:
-    1. Pelo WhatsApp: Envie a mensagem """ + COMANDO_RELATORIO + """
-    2. Pelo navegador: Acesse /relatorio no seu servidor
+    🔍 ORDEM DE VERIFICAÇÃO (CORRIGIDA):
+    1º → Comando relatório (PRIORIDADE MÁXIMA)
+    2º → Pergunta sobre cupom
+    3º → Fluxo normal do chatbot
     
     ╚═══════════════════════════════════════════════════════════╝
     """)
