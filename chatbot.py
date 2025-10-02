@@ -285,7 +285,7 @@ def tem_app(number):
 
 def enviar_tutorial(number):
     """Envia vídeo tutorial"""
-    send_text(number, "🔹 *Perfeito!*\n\nVou te ensinar como usar cupom!\n\nAssista o vídeo: 👇")
+    send_text(number, "🔹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
     
     send_video(
         number=number,
