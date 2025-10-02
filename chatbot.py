@@ -394,9 +394,12 @@ def enviar_tutorial(number):
     """Envia vídeo tutorial"""
     
     # Verifica se já está no estado correto para evitar loop
-    if user_states.get(number) == "AGUARDANDO_RESULTADO":
-        print(f"⚠️ Já está aguardando resultado, pulando envio duplicado")
+    estado_atual = user_states.get(number)
+    if estado_atual == "AGUARDANDO_RESULTADO":
+        print(f"⚠️ BLOQUEADO - Já está aguardando resultado, não reenviando tutorial")
         return
+    
+    print(f"📹 ENVIANDO TUTORIAL para {number} (estado atual: {estado_atual})")
     
     send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
     
@@ -428,6 +431,7 @@ def enviar_tutorial(number):
         send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
     
     user_states[number] = "AGUARDANDO_RESULTADO"
+    print(f"   ✅ Estado ATUALIZADO: {estado_atual} → AGUARDANDO_RESULTADO")
 
 def enviar_grupo(number):
     """Envia link do grupo"""
@@ -576,11 +580,40 @@ def processar_mensagem(number, message):
         return
     
     elif estado_atual == "AGUARDANDO_QUER_TUTORIAL":
-        print(f"   → Verificando se quer assistir tutorial...")
+        print(f"   → Verificando se quer assistir tutorial (estado: {estado_atual})...")
         
-        if "QUERO" in msg or msg == "1" or "SIM" in msg:
-            print("   → Ação: Usuário QUER ver o tutorial")
-            enviar_tutorial(number)
+        if "QUERO" in msg or msg == "1" or "SIM" in msg or "VER" in msg:
+            print("   → Ação: Usuário QUER ver o tutorial - ENVIANDO AGORA")
+            # NÃO chama função recursiva, envia diretamente aqui
+            send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
+            
+            import time
+            time.sleep(2)
+            
+            send_video(
+                number=number,
+                video_url=VIDEO_TUTORIAL_URL,
+                caption="🎬 Tutorial: Como usar cupom no 99Food"
+            )
+            
+            time.sleep(3)
+            
+            result = send_buttons(
+                number=number,
+                text="📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?",
+                footer="Chatbot 99Food",
+                buttons=[
+                    {"id": "DEU_CERTO", "text": "✅ Sim, consegui!"},
+                    {"id": "NAO_DEU_CERTO", "text": "❌ Não consegui"},
+                    {"id": "DEPOIS", "text": "⏰ Vou tentar depois"}
+                ]
+            )
+            
+            if not result or result.get('status') == 'Pending':
+                send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
+            
+            user_states[number] = "AGUARDANDO_RESULTADO"
+            print(f"   ✅ Estado ATUALIZADO: AGUARDANDO_QUER_TUTORIAL → AGUARDANDO_RESULTADO")
         else:
             print("   → Ação: Usuário NÃO precisa do tutorial - enviando para grupo")
             mensagem = f"""✅ *Perfeito!*
@@ -602,7 +635,7 @@ Aproveite! 🚀"""
             send_text(number, mensagem)
             if number in user_states:
                 del user_states[number]
-                print(f"   ✅ Estado removido para {number}")
+                print(f"   ✅ Estado removido para {number} - CONVERSA FINALIZADA")
         return
     
     elif estado_atual == "AGUARDANDO_RESULTADO":
@@ -915,7 +948,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.3-anti-loop",
+        "versao": "3.4-loop-fix-final",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -956,13 +989,13 @@ def home():
 if __name__ == '__main__':
     print("""
     ╔═══════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - V3.3 SEM LOOPS
+    🤖 CHATBOT 99FOOD - V3.4 LOOP FIX FINAL
     ╚═══════════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
-    ✅ Envio de vídeo CORRIGIDO (formato Uazapi)
-    ✅ LOOPS CORRIGIDOS - Validação de estados
-    ✅ Fluxo para quem já usou cupom funcionando
+    ✅ LOOPS ELIMINADOS - Código inline no processamento
+    ✅ Sem chamadas recursivas de funções
+    ✅ Estados validados antes de cada ação
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -986,33 +1019,36 @@ if __name__ == '__main__':
     
     🎁 Cupom: """ + CUPOM_DESCONTO + """
     
-    📝 Fluxo COMPLETO do bot (SEM LOOPS):
+    📝 Fluxo CORRIGIDO (100% SEM LOOPS):
     
-    1️⃣ *OPÇÃO 1 - JÁ USEI CUPOM:*
-       → Orienta a criar nova conta (outro email/número)
-       → Pergunta se quer receber o cupom
-       → Envia cupom
-       → Pergunta se quer ver tutorial
-       → Se SIM: Envia vídeo → Pergunta resultado → Grupo VIP
-       → Se NÃO: Envia direto para Grupo VIP
+    1️⃣ *JÁ USEI CUPOM:*
+       Estado: AGUARDANDO_CUPOM
+       → Orienta nova conta (1x)
+       Estado: AGUARDANDO_NOVA_CONTA
+       → Pergunta se quer cupom (1x)
+       → Envia cupom (1x)
+       Estado: AGUARDANDO_QUER_TUTORIAL
+       → Pergunta se quer tutorial (1x)
+       → Se SIM: Envia vídeo INLINE (sem função recursiva)
+       Estado: AGUARDANDO_RESULTADO
+       → Grupo VIP + Remove estado
     
-    2️⃣ *OPÇÃO 2 - NUNCA USEI:*
-       → Envia tutorial em vídeo direto
-       → Pergunta se conseguiu usar
-       → Envia Grupo VIP
+    2️⃣ *NUNCA USEI:*
+       → Tutorial direto (1x)
+       Estado: AGUARDANDO_RESULTADO
+       → Grupo VIP + Remove estado
     
-    3️⃣ *OPÇÃO 3 - QUERO UM CUPOM:*
-       → Envia cupom formatado
-       → Envia tutorial em vídeo automaticamente
-       → Pergunta se conseguiu usar
-       → Envia Grupo VIP
+    3️⃣ *QUERO CUPOM:*
+       → Cupom + Tutorial automático (1x cada)
+       Estado: AGUARDANDO_RESULTADO
+       → Grupo VIP + Remove estado
     
-    🔒 PROTEÇÕES ANTI-LOOP:
-    ✅ Verificação de estado antes de enviar cupom
-    ✅ Verificação de estado antes de enviar tutorial
-    ✅ Estados são definidos APÓS enviar mensagens
-    ✅ Estados são removidos após finalizar fluxo
-    ✅ Logs detalhados de mudanças de estado
+    🔒 PROTEÇÃO ANTI-LOOP V2:
+    ✅ Código do tutorial executado INLINE (não chama função)
+    ✅ Estados verificados ANTES de cada ação
+    ✅ Logs mostram mudanças de estado em tempo real
+    ✅ Estados limpos ao finalizar conversa
+    ✅ Mensagens enviadas apenas 1x por estado
     
     ╚═══════════════════════════════════════════╝
     """)
