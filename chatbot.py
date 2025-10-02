@@ -2,7 +2,7 @@
 """
 Chatbot 99Food - uazapiGO V4.1
 Arquivo: chatbot.py
-Versao: 4.1 - Com persistencia de dados
+Versao: 4.1 - Com persistencia de dados e mensagens formatadas
 """
 
 from flask import Flask, request, jsonify
@@ -94,7 +94,7 @@ def registrar_estatistica(tipo, numero):
     salvar_estatisticas()
 
 def gerar_relatorio():
-    """Gera relatorio formatado das estatisticas"""
+    """Gera relatorio formatado das estatisticas com numeros completos"""
     from datetime import date
     
     hoje = str(date.today())
@@ -278,11 +278,11 @@ def iniciar_conversa(number):
     
     result = send_buttons(
         number=number,
-        text="Ola! Bem-vindo ao Cupom Premiado!\n\nVoce ja tem o app da 99 Food instalado?",
+        text="👋 Olá! Bem-vindo ao Cupom Premiado!\n\n🍕 Você já tem o app da 99 Food instalado?",
         footer="Chatbot 99Food",
         buttons=[
-            {"id": "SIM", "text": "Sim, ja tenho"},
-            {"id": "NAO", "text": "Nao, preciso instalar"}
+            {"id": "SIM", "text": "✅ Sim, já tenho"},
+            {"id": "NAO", "text": "📲 Não, preciso instalar"}
         ]
     )
     
@@ -290,7 +290,7 @@ def iniciar_conversa(number):
         print("Botoes falharam, enviando texto simples...")
         send_text(
             number,
-            "Ola! Bem-vindo ao Cupom Premiado!\n\nVoce ja tem o app da 99 Food instalado?\n\nResponda:\n1 - Sim, ja tenho\n2 - Nao, preciso instalar"
+            "👋 Olá! Bem-vindo ao Cupom Premiado!\n\n🍕 Você já tem o app da 99 Food instalado?\n\n*Responda:*\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
         )
     
     user_states[number] = "AGUARDANDO_TEM_APP"
@@ -298,14 +298,14 @@ def iniciar_conversa(number):
 
 def nao_tem_app(number):
     """Envia link para download"""
-    mensagem = f"""Sem problemas!
+    mensagem = f"""📲 *Sem problemas!*
 
 Baixe o app da 99Food agora:
 
-Link do app:
+🔗 *Link do app:*
 {LINK_APP_99FOOD}
 
-Apos instalar, volte aqui!"""
+Após instalar, volte aqui! 😊"""
     
     send_text(number, mensagem)
     
@@ -313,16 +313,16 @@ Apos instalar, volte aqui!"""
     
     result = send_buttons(
         number=number,
-        text="Voce ja instalou o app?",
+        text="Você já instalou o app?",
         footer="Chatbot 99Food",
         buttons=[
-            {"id": "INSTALOU", "text": "Sim, instalei!"},
-            {"id": "DEPOIS", "text": "Vou instalar depois"}
+            {"id": "INSTALOU", "text": "✅ Sim, instalei!"},
+            {"id": "DEPOIS", "text": "⏰ Vou instalar depois"}
         ]
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "Voce ja instalou o app?\n\n1 - Sim, instalei!\n2 - Vou instalar depois")
+        send_text(number, "Você já instalou o app?\n\n1️⃣ - Sim, instalei!\n2️⃣ - Vou instalar depois")
     
     user_states[number] = "AGUARDANDO_INSTALACAO"
     print(f"Estado definido: AGUARDANDO_INSTALACAO")
@@ -331,17 +331,17 @@ def tem_app(number):
     """Pergunta sobre cupom"""
     result = send_buttons(
         number=number,
-        text="Otimo!\n\nVoce ja utilizou algum cupom de desconto no 99Food?",
+        text="🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto no 99Food?",
         footer="Chatbot 99Food",
         buttons=[
-            {"id": "JA_USEI", "text": "Sim, ja usei"},
-            {"id": "NAO_USEI", "text": "Nao, nunca usei"},
-            {"id": "QUERO_CUPOM", "text": "Quero um cupom!"}
+            {"id": "JA_USEI", "text": "✅ Sim, já usei"},
+            {"id": "NAO_USEI", "text": "🆕 Não, nunca usei"},
+            {"id": "QUERO_CUPOM", "text": "🎁 Quero um cupom!"}
         ]
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "Otimo!\n\nVoce ja utilizou algum cupom de desconto no 99Food?\n\n1 - Sim, ja usei\n2 - Nao, nunca usei\n3 - Quero um cupom!")
+        send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!")
     
     user_states[number] = "AGUARDANDO_CUPOM"
     print(f"Estado definido: AGUARDANDO_CUPOM")
@@ -350,20 +350,20 @@ def ja_usou_cupom(number):
     """Orienta sobre nova conta"""
     print(f"ORIENTANDO sobre NOVA CONTA para {number}")
     
-    mensagem = f"""Entendi!
+    mensagem = f"""💡 *Entendi!*
 
-Esse cupom e exclusivo para primeira compra no app 99Food!
+Esse cupom é *exclusivo para primeira compra* no app 99Food! 🎁
 
-Mas tenho uma solucao para voce:
+📱 *Mas tenho uma solução para você:*
 
-Voce pode criar uma nova conta com outro numero ou email diferente e usar o cupom!
+Você pode criar uma *nova conta* com outro número ou email diferente e usar o cupom! 
 
-Como fazer:
-1. Faca logout da sua conta atual
-2. Cadastre com novo email/numero
+✅ *Como fazer:*
+1. Faça logout da sua conta atual
+2. Cadastre com novo email/número
 3. Use o cupom na primeira compra
 
-Digite qualquer coisa quando estiver pronto para receber o cupom!"""
+💬 *Digite qualquer coisa quando estiver pronto para receber o cupom!* 👇"""
     
     send_text(number, mensagem)
     
@@ -376,20 +376,20 @@ def enviar_cupom_e_aguardar(number):
     
     registrar_estatistica("cupom_enviado", number)
     
-    mensagem = f"""Aqui esta seu cupom exclusivo!
+    mensagem = f"""🎁 *Aqui está seu cupom exclusivo!*
 
-{CUPOM_DESCONTO}
+🎫 *{CUPOM_DESCONTO}*
 
-Como usar:
+💡 *Como usar:*
 1. Abra o app 99Food
 2. Escolha seu pedido
 3. Na tela de pagamento, procure "Cupom"
-4. Cole o cupom: {CUPOM_DESCONTO}
-5. Aproveite o desconto!
+4. Cole o cupom: *{CUPOM_DESCONTO}*
+5. Aproveite o desconto! 🚀
 
-Quer ver um tutorial em video de como usar?
+🎹 *Quer ver um tutorial em vídeo de como usar?*
 
-Digite qualquer coisa para ver o tutorial!"""
+💬 *Digite qualquer coisa para ver o tutorial!* 👇"""
     
     send_text(number, mensagem)
     
@@ -402,31 +402,31 @@ def enviar_tutorial_e_aguardar(number):
     
     registrar_estatistica("tutorial_enviado", number)
     
-    send_text(number, "Perfeito!\n\nVou te mostrar como usar o cupom!")
+    send_text(number, "🎹 *Perfeito!*\n\nVou te mostrar como usar o cupom!")
     
     time.sleep(2)
     
     send_video(
         number=number,
         video_url=VIDEO_TUTORIAL_URL,
-        caption="Tutorial: Como usar cupom no 99Food"
+        caption="🎬 Tutorial: Como usar cupom no 99Food"
     )
     
     time.sleep(3)
     
     result = send_buttons(
         number=number,
-        text="Assistiu o tutorial?\n\nConseguiu usar o cupom?",
+        text="📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?",
         footer="Chatbot 99Food",
         buttons=[
-            {"id": "DEU_CERTO", "text": "Sim, consegui!"},
-            {"id": "NAO_DEU_CERTO", "text": "Nao consegui"},
-            {"id": "DEPOIS", "text": "Vou tentar depois"}
+            {"id": "DEU_CERTO", "text": "✅ Sim, consegui!"},
+            {"id": "NAO_DEU_CERTO", "text": "❌ Não consegui"},
+            {"id": "DEPOIS", "text": "⏰ Vou tentar depois"}
         ]
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "Conseguiu usar o cupom?\n\n1 - Sim, consegui!\n2 - Nao consegui\n3 - Vou tentar depois")
+        send_text(number, "📺 Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
     
     user_states[number] = "AGUARDANDO_RESULTADO"
     print(f"Estado definido: AGUARDANDO_RESULTADO")
@@ -437,21 +437,21 @@ def enviar_grupo_final(number):
     registrar_estatistica("grupo_enviado", number)
     registrar_estatistica("conversa_finalizada", number)
     
-    mensagem = f"""Parabens!
+    mensagem = f"""🎉 *Parabéns!*
 
-Voce esta aproveitando o 99Food!
+Você está aproveitando o 99Food! 🍕
 
-Quer mais ofertas?
+💰 *Quer mais ofertas?*
 
 Entre no grupo VIP:
-- Cupons exclusivos
-- Ofertas relampago
-- Descontos ate 70%
+• 🎁 Cupons exclusivos
+• 🔥 Ofertas relâmpago
+• 💸 Descontos até 70%
 
-Link do grupo:
+👥 *Link do grupo:*
 {LINK_GRUPO_OFERTAS}
 
-Aproveite!"""
+Aproveite! 🚀"""
     
     send_text(number, mensagem)
     
@@ -461,15 +461,15 @@ Aproveite!"""
 
 def nao_deu_certo_tutorial(number):
     """Dificuldade apos tutorial"""
-    mensagem = """Que pena!
+    mensagem = """😔 Que pena!
 
-Vamos te ajudar:
+📞 *Vamos te ajudar:*
 
-1. Assista novamente o video
-2. Copie o cupom corretamente
-3. Cole antes de finalizar o pedido
+1️⃣ Assista novamente o vídeo
+2️⃣ Copie o cupom corretamente
+3️⃣ Cole antes de finalizar o pedido
 
-Me mande mensagem se precisar de ajuda!"""
+💬 *Me mande mensagem se precisar de ajuda!* 😊"""
     
     send_text(number, mensagem)
     
@@ -510,18 +510,18 @@ def responder_cupom_direto(number):
     
     registrar_estatistica("cupom_enviado", number)
     
-    mensagem = f"""Seu cupom exclusivo:
+    mensagem = f"""🎁 *Seu cupom exclusivo:*
 
-{CUPOM_DESCONTO}
+🎫 *{CUPOM_DESCONTO}*
 
-Como usar:
+💡 *Como usar:*
 1. Abra o app 99Food
 2. Escolha seu pedido
 3. Na tela de pagamento, procure "Cupom"
-4. Cole o cupom: {CUPOM_DESCONTO}
-5. Aproveite o desconto!
+4. Cole o cupom: *{CUPOM_DESCONTO}*
+5. Aproveite o desconto! 🚀
 
-Precisa de ajuda? Digite qualquer coisa e te envio um tutorial em video!"""
+🎹 *Precisa de ajuda?* Digite qualquer coisa e te envio um tutorial em vídeo!"""
     
     send_text(number, mensagem)
     
@@ -570,7 +570,7 @@ def processar_mensagem(number, message):
             print("Acao: Resposta nao reconhecida, repetindo pergunta")
             send_text(
                 number,
-                "Nao entendi sua resposta.\n\nPor favor, escolha uma opcao:\n\n1 - Sim, ja tenho o app\n2 - Nao, preciso instalar"
+                "🤔 Não entendi sua resposta.\n\nPor favor, escolha uma opção:\n\n1️⃣ - Sim, já tenho o app\n2️⃣ - Não, preciso instalar"
             )
         return
     
@@ -582,7 +582,7 @@ def processar_mensagem(number, message):
             tem_app(number)
         else:
             print("Acao: Usuario vai instalar depois")
-            send_text(number, "Ok! Quando instalar, me mande uma mensagem! Ate logo!")
+            send_text(number, "😊 Ok! Quando instalar, me mande uma mensagem! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
                 print(f"Estado removido para {number}")
@@ -604,7 +604,7 @@ def processar_mensagem(number, message):
             print("Acao: Resposta nao reconhecida")
             send_text(
                 number,
-                "Nao entendi.\n\nVoce ja usou cupom no 99Food?\n\n1 - Sim, ja usei\n2 - Nao, nunca usei\n3 - Quero um cupom!"
+                "🤔 Não entendi.\n\nVocê já usou cupom no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!"
             )
         return
     
@@ -631,7 +631,7 @@ def processar_mensagem(number, message):
             nao_deu_certo_tutorial(number)
         else:
             print("Acao: Vai tentar depois")
-            send_text(number, "Sem pressa! Quando testar, me avise! Ate logo!")
+            send_text(number, "😊 Sem pressa! Quando testar, me avise! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
                 print(f"Estado removido para {number}")
@@ -716,7 +716,7 @@ def health():
     """Status do servidor"""
     return jsonify({
         "status": "online",
-        "version": "4.1-com-persistencia",
+        "version": "4.1-integrado",
         "usuarios_ativos": len(user_states),
         "total_conversas": estatisticas["total_conversas"],
         "usuarios_hoje": len(estatisticas["conversas_hoje"])
@@ -728,7 +728,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "4.1",
+        "versao": "4.1-integrado",
         "usuarios_ativos": len(user_states),
         "total_conversas": estatisticas["total_conversas"]
     })
@@ -737,7 +737,7 @@ def home():
 
 if __name__ == '__main__':
     print("""
-    CHATBOT 99FOOD - V4.1
+    CHATBOT 99FOOD - V4.1 INTEGRADO
     
     Servidor rodando!
     Porta: """ + str(PORT) + """
