@@ -218,7 +218,7 @@ def iniciar_conversa(number):
     # Tenta enviar com botões primeiro
     result = send_buttons(
         number=number,
-        text="👋 Olá! Bem-vindo ao 99Food!\n\n🍕 Você já tem o app da 99Food instalado?",
+        text="👋 Olá! Bem-vindo ao Cupom Premiado!\n\n🍕 Você já tem o app da 99 Food instalado?",
         footer="Chatbot 99Food",
         buttons=[
             {"id": "SIM", "text": "✅ Sim, já tenho"},
@@ -231,7 +231,7 @@ def iniciar_conversa(number):
         print("⚠️ Botões falharam, enviando texto simples...")
         send_text(
             number,
-            "👋 Olá! Bem-vindo ao 99Food!\n\n🍕 Você já tem o app da 99Food instalado?\n\n_Responda:_\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
+            "👋 Olá! Bem-vindo ao Cupom Premiado!\n\n🍕 Você já tem o app da 99 Food instalado?\n\n*Responda:*\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
         )
     
     user_states[number] = "AGUARDANDO_TEM_APP"
@@ -284,7 +284,7 @@ def tem_app(number):
 
 def enviar_tutorial(number):
     """Envia vídeo tutorial"""
-    send_text(number, "🔹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
+    send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
     
     # Aguarda 2 segundos antes de enviar o vídeo
     import time
@@ -326,7 +326,7 @@ Você está aproveitando o 99Food! 🍕
 Entre no grupo VIP:
 • 🎁 Cupons exclusivos
 • 🔥 Ofertas relâmpago
-• 💸 Descontos até 50%
+• 💸 Descontos até 70%
 
 👥 *Link do grupo:*
 {LINK_GRUPO_OFERTAS}
@@ -343,7 +343,12 @@ def deu_certo_tutorial(number):
 
 Fico feliz que deu certo! 🙌
 
-💡 Entre no grupo de ofertas:
+💰 *Quer mais ofertas?*
+
+Entre no grupo VIP:
+• 🎁 Cupons exclusivos
+• 🔥 Ofertas relâmpago
+• 💸 Descontos até 70%
 
 👥 *Link:*
 {LINK_GRUPO_OFERTAS}
@@ -363,8 +368,6 @@ def nao_deu_certo_tutorial(number):
 1️⃣ Assista novamente
 2️⃣ Copie o cupom corretamente
 3️⃣ Cole antes de finalizar
-
-💬 Suporte: suporte@99food.com
 
 Me mande mensagem se precisar! 😊"""
     
