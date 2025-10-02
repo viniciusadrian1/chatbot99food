@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (VERSÃO COMPLETA E FINAL - ATUALIZADA)
+Arquivo: chatbot.py (VERSÃO COMPLETA E CORRIGIDA)
 """
 
 from flask import Flask, request, jsonify
@@ -156,6 +156,14 @@ def send_video(number, video_url, caption=""):
     """Envia vídeo como mídia - FORMATO CORRETO UAZAPI"""
     url = f"{API_HOST}/send/media"
     
+    # Payload CORRETO conforme documentação Uazapi
+    payload = {
+        "number": number,
+        "type": "video",
+        "file": video_url,
+        "text": caption
+    }
+    
     headers = {
         "Accept": "application/json",
         "token": API_TOKEN,
@@ -164,71 +172,44 @@ def send_video(number, video_url, caption=""):
     
     print(f"\n📤 ENVIANDO VÍDEO para {number}")
     print(f"🎬 URL do vídeo: {video_url}")
+    print(f"📦 Payload: {payload}")
+    print(f"🔑 Token: {API_TOKEN[:10]}...{API_TOKEN[-5:]}")
     
-    # Formatos a testar
-    payloads_to_try = [
-        # Formato 1: send/media com mediaUrl
-        {
-            "endpoint": f"{API_HOST}/send/media",
-            "payload": {
-                "number": number,
-                "mediaUrl": video_url,
-                "mediaType": "video",
-                "caption": caption
-            }
-        },
-        # Formato 2: send/video direto
-        {
-            "endpoint": f"{API_HOST}/send/video",
-            "payload": {
-                "number": number,
-                "video": video_url,
-                "caption": caption
-            }
-        },
-        # Formato 3: send/file genérico
-        {
-            "endpoint": f"{API_HOST}/send/file",
-            "payload": {
-                "number": number,
-                "url": video_url,
-                "caption": caption,
-                "filename": "tutorial.mp4"
-            }
-        }
-    ]
-    
-    # Tenta cada formato
-    for i, test in enumerate(payloads_to_try, 1):
-        try:
-            print(f"\n🔄 Tentativa {i}/3")
-            print(f"   Endpoint: {test['endpoint']}")
-            print(f"   Payload: {test['payload']}")
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=20)
+        
+        print(f"\n📊 RESPOSTA DA API (VÍDEO):")
+        print(f"   Status HTTP: {response.status_code}")
+        print(f"   Resposta completa: {response.text}")
+        
+        if response.status_code == 200:
+            response_data = response.json()
             
-            response = requests.post(test['endpoint'], json=test['payload'], headers=headers, timeout=20)
-            
-            print(f"\n📊 RESPOSTA DA API (VÍDEO - Tentativa {i}):")
-            print(f"   Status HTTP: {response.status_code}")
-            print(f"   Resposta: {response.text[:500]}")
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                if response_data.get('status') not in ['error', 'Pending']:
-                    print(f"   ✅ Vídeo enviado com sucesso no formato {i}!")
-                    return response_data
-                else:
-                    print(f"   ⚠️ Formato {i} retornou erro: {response_data.get('message', 'desconhecido')}")
+            # Verifica se enviou com sucesso
+            if response_data.get('status') not in ['error', 'Pending']:
+                print(f"   ✅ Vídeo enviado como MÍDIA com sucesso!")
+                return response_data
             else:
-                print(f"   ⚠️ Formato {i} - Status HTTP {response.status_code}")
-                
-        except Exception as e:
-            print(f"   ❌ ERRO na tentativa {i}: {e}")
-            continue
-    
-    # Se nada funcionar, envia link como texto
-    print(f"\n⚠️ FALLBACK: Enviando vídeo como link de texto...")
-    send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
-    return {"status": "sent_as_link", "url": video_url}
+                print(f"   ⚠️ API retornou erro: {response_data.get('message', 'desconhecido')}")
+        else:
+            print(f"   ⚠️ Status HTTP não é 200: {response.status_code}")
+        
+        # Se falhar, tenta enviar como link
+        print(f"\n⚠️ FALLBACK: Enviando vídeo como link de texto...")
+        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
+        return {"status": "sent_as_link", "url": video_url}
+        
+    except requests.exceptions.Timeout:
+        print(f"   ⏱️ TIMEOUT - API não respondeu em 20s")
+        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
+        return {"status": "timeout", "url": video_url}
+        
+    except Exception as e:
+        print(f"   ❌ EXCEÇÃO: {e}")
+        import traceback
+        traceback.print_exc()
+        send_text(number, f"🎬 *Assista o tutorial aqui:*\n\n{video_url}\n\n_Clique no link para abrir o vídeo_")
+        return {"status": "error", "error": str(e)}
 
 # ==================== FLUXO DO CHATBOT ====================
 
@@ -304,7 +285,7 @@ def tem_app(number):
 
 def enviar_tutorial(number):
     """Envia vídeo tutorial"""
-    send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!\n\nAssista o vídeo: 👇")
+    send_text(number, "🔹 *Perfeito!*\n\nVou te ensinar como usar cupom!\n\nAssista o vídeo: 👇")
     
     send_video(
         number=number,
@@ -398,7 +379,7 @@ def processar_mensagem(number, message):
     print(f"👤 Usuário: {number}")
     print(f"📊 Estado atual: {estado_atual}")
     print(f"💬 Mensagem recebida: '{message}'")
-    print(f"🔠 Mensagem normalizada: '{msg}'")
+    print(f"🔍 Mensagem normalizada: '{msg}'")
     print(f"{'='*60}")
     
     # Se não tem estado ou é uma saudação inicial, inicia conversa
@@ -717,7 +698,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.0-final",
+        "versao": "3.0-final-corrigido",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -743,11 +724,12 @@ def home():
 
 if __name__ == '__main__':
     print("""
-    ╔════════════════════════════════════════╗
+    ╔═══════════════════════════════════════╗
     🤖 CHATBOT 99FOOD - UAZAPIGO V3.0 FINAL
-    ╚════════════════════════════════════════╝
+    ╚═══════════════════════════════════════╝
     
     ✅ Servidor rodando com DEBUG COMPLETO!
+    ✅ Envio de vídeo CORRIGIDO (formato Uazapi)
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -771,10 +753,15 @@ if __name__ == '__main__':
     1. Usuário manda qualquer mensagem → Bot inicia conversa
     2. Pergunta se tem o app instalado
     3. Pergunta se já usou cupom
-    4. Envia tutorial (vídeo) ou grupo VIP
+    4. Envia tutorial (vídeo como MÍDIA) ou grupo VIP
     5. Finaliza com grupo de ofertas
     
-    ╚════════════════════════════════════════╝
+    🎥 CORREÇÃO APLICADA:
+    • Vídeo agora usa formato correto da Uazapi
+    • Payload: {"type": "video", "file": "url", "text": "caption"}
+    • Endpoint: /send/media
+    
+    ╚═══════════════════════════════════════╝
     """)
     
     app.run(host='0.0.0.0', port=PORT, debug=False)
