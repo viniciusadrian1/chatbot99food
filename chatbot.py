@@ -1,6 +1,6 @@
 """
 Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py
+Arquivo: chatbot.py (versão com debug melhorado)
 """
 
 from flask import Flask, request, jsonify
@@ -9,7 +9,6 @@ from datetime import datetime
 import os
 
 # ==================== CONFIGURAÇÕES ====================
-# Usa variáveis de ambiente (Render) ou valores padrão
 API_HOST = os.getenv('API_HOST', 'https://99food.uazapi.com')
 API_TOKEN = os.getenv('API_TOKEN', 'SEU_TOKEN_AQUI')
 
@@ -45,11 +44,20 @@ def send_menu(number, text, footer, button_text, choices):
         "token": API_TOKEN,
         "Content-Type": "application/json"
     }
+    
+    print(f"\n📤 ENVIANDO MENU para {number}")
+    print(f"URL: {url}")
+    print(f"Token: {API_TOKEN[:10]}...")
+    
     try:
         response = requests.post(url, json=payload, headers=headers)
+        print(f"✅ Status: {response.status_code}")
+        print(f"📥 Resposta: {response.text}")
         return response.json()
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"❌ ERRO ao enviar menu: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def send_text(number, text):
@@ -67,11 +75,19 @@ def send_text(number, text):
         "token": API_TOKEN,
         "Content-Type": "application/json"
     }
+    
+    print(f"\n📤 ENVIANDO TEXTO para {number}")
+    print(f"Mensagem: {text[:50]}...")
+    
     try:
         response = requests.post(url, json=payload, headers=headers)
+        print(f"✅ Status: {response.status_code}")
+        print(f"📥 Resposta: {response.text}")
         return response.json()
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"❌ ERRO ao enviar texto: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def send_video(number, video_url, caption=""):
@@ -90,17 +106,26 @@ def send_video(number, video_url, caption=""):
         "token": API_TOKEN,
         "Content-Type": "application/json"
     }
+    
+    print(f"\n📤 ENVIANDO VÍDEO para {number}")
+    
     try:
         response = requests.post(url, json=payload, headers=headers)
+        print(f"✅ Status: {response.status_code}")
+        print(f"📥 Resposta: {response.text}")
         return response.json()
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"❌ ERRO ao enviar vídeo: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 # ==================== FLUXO DO CHATBOT ====================
 
 def iniciar_conversa(number):
     """Pergunta inicial"""
+    print(f"\n🚀 INICIANDO conversa com {number}")
+    
     send_menu(
         number=number,
         text="👋 Olá! Bem-vindo ao 99Food!\n\n🍕 Você já tem o app da 99Food instalado?",
@@ -240,7 +265,12 @@ def processar_mensagem(number, message):
     estado_atual = user_states.get(number, "INICIO")
     msg = message.upper().strip()
     
-    print(f"[{datetime.now()}] User: {number} | Estado: {estado_atual} | Msg: {message}")
+    print(f"\n{'='*60}")
+    print(f"⚙️ PROCESSANDO MENSAGEM")
+    print(f"👤 Usuário: {number}")
+    print(f"📊 Estado: {estado_atual}")
+    print(f"💬 Mensagem: {message}")
+    print(f"{'='*60}")
     
     if estado_atual == "INICIO":
         iniciar_conversa(number)
@@ -286,44 +316,35 @@ def webhook():
     try:
         data = request.json
         
-        # LOG: Mostra dados recebidos
-        print("=" * 50)
-        print(f"[WEBHOOK RECEBIDO] {datetime.now()}")
+        print("\n" + "="*60)
+        print(f"🔔 WEBHOOK RECEBIDO em {datetime.now()}")
+        print("="*60)
         
         # Ignora mensagens enviadas pelo próprio bot
         if data.get('message', {}).get('fromMe'):
-            print("[IGNORADO] Mensagem enviada pelo bot")
+            print("⚠️ IGNORADO - Mensagem enviada pelo bot")
             return jsonify({"status": "ignored - from me"}), 200
         
-        # Extrai dados corretos da estrutura uazapiGO
+        # Extrai dados
         message_data = data.get('message', {})
-        chat_data = data.get('chat', {})
-        
-        # Número do remetente
         number = message_data.get('sender', '').replace('@s.whatsapp.net', '')
-        
-        # Texto da mensagem
         message_text = message_data.get('text', '') or message_data.get('content', '')
-        
-        # ID da escolha do botão/lista
         button_choice = message_data.get('buttonOrListid', '')
         
-        print(f"Número: {number}")
-        print(f"Mensagem: {message_text}")
-        print(f"Botão escolhido: {button_choice}")
-        print("=" * 50)
+        print(f"📱 Número: {number}")
+        print(f"💬 Texto: {message_text}")
+        print(f"🔘 Botão: {button_choice}")
         
         if number and (message_text or button_choice):
-            # Usa o ID do botão se existir, senão usa o texto
             final_message = button_choice if button_choice else message_text
             processar_mensagem(number, final_message)
             return jsonify({"status": "success"}), 200
         
-        print("[ERRO] Dados incompletos")
+        print("❌ ERRO - Dados incompletos")
         return jsonify({"error": "Dados incompletos"}), 400
     
     except Exception as e:
-        print(f"[ERRO CRÍTICO] {e}")
+        print(f"\n❌ ERRO CRÍTICO: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -331,6 +352,7 @@ def webhook():
 @app.route('/test/<number>', methods=['GET'])
 def testar(number):
     """Testa o bot manualmente"""
+    print(f"\n🧪 TESTE MANUAL iniciado para {number}")
     iniciar_conversa(number)
     return jsonify({"status": "Iniciado", "number": number})
 
@@ -340,6 +362,7 @@ def health():
     return jsonify({
         "status": "online",
         "usuarios_ativos": len(user_states),
+        "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
         "timestamp": datetime.now().isoformat()
     })
 
@@ -347,9 +370,9 @@ def health():
 
 if __name__ == '__main__':
     print("""
-    ═══════════════════════════════════════
+    ╔═══════════════════════════════════════╗
     🤖 CHATBOT 99FOOD - UAZAPIGO V2
-    ═══════════════════════════════════════
+    ╚═══════════════════════════════════════╝
     
     ✅ Servidor rodando!
     
@@ -359,7 +382,11 @@ if __name__ == '__main__':
     • GET  /health - Status
     
     🔧 Configure webhook: http://seu-ip:5000/webhook
-    ═══════════════════════════════════════
+    ╚═══════════════════════════════════════╝
     """)
+    
+    # Valida configuração
+    if API_TOKEN == 'SEU_TOKEN_AQUI':
+        print("⚠️  AVISO: API_TOKEN não configurado!")
     
     app.run(host='0.0.0.0', port=PORT, debug=False)
