@@ -1,12 +1,14 @@
 """
-Chatbot 99Food - uazapiGO V2
-Arquivo: chatbot.py (VERSÃO COMPLETA E CORRIGIDA - com envio de cupom)
+Chatbot 99Food - uazapiGO V4.0
+Arquivo: chatbot.py (VERSÃO ANTI-LOOP COM CONFIRMAÇÕES)
+Correção: Aguarda resposta do usuário entre cada etapa
 """
 
 from flask import Flask, request, jsonify
 import requests
 from datetime import datetime
 import os
+import time
 
 # ==================== CONFIGURAÇÕES ====================
 API_HOST = os.getenv('API_HOST', 'https://99food.uazapi.com')
@@ -149,8 +151,8 @@ def send_buttons(number, text, footer, buttons):
     except Exception as e:
         print(f"   ❌ ERRO tentativa 2: {e}")
     
-    # Se botões não funcionarem, usa texto simples
-    print(f"   ⚠️ Botões não funcionaram - usando texto simples")
+    # Se botões não funcionarem, retorna None
+    print(f"   ⚠️ Botões não funcionaram - retornando None")
     return None
 
 def send_video(number, video_url, caption=""):
@@ -235,6 +237,7 @@ def iniciar_conversa(number):
         )
     
     user_states[number] = "AGUARDANDO_TEM_APP"
+    print(f"   ✅ Estado definido: AGUARDANDO_TEM_APP")
 
 def nao_tem_app(number):
     """Envia link para download"""
@@ -248,6 +251,8 @@ Baixe o app da 99Food agora:
 Após instalar, volte aqui! 😊"""
     
     send_text(number, mensagem)
+    
+    time.sleep(2)
     
     result = send_buttons(
         number=number,
@@ -263,6 +268,7 @@ Após instalar, volte aqui! 😊"""
         send_text(number, "Você já instalou o app?\n\n1️⃣ - Sim, instalei!\n2️⃣ - Vou instalar depois")
     
     user_states[number] = "AGUARDANDO_INSTALACAO"
+    print(f"   ✅ Estado definido: AGUARDANDO_INSTALACAO")
 
 def tem_app(number):
     """Pergunta sobre cupom"""
@@ -281,14 +287,11 @@ def tem_app(number):
         send_text(number, "🎉 *Ótimo!*\n\n🎫 Você já utilizou algum cupom de desconto no 99Food?\n\n1️⃣ - Sim, já usei\n2️⃣ - Não, nunca usei\n3️⃣ - Quero um cupom!")
     
     user_states[number] = "AGUARDANDO_CUPOM"
+    print(f"   ✅ Estado definido: AGUARDANDO_CUPOM")
 
 def ja_usou_cupom(number):
-    """Orienta usuário que já usou cupom a criar nova conta"""
-    print(f"🔄 ORIENTANDO sobre NOVA CONTA para {number}")
-    
-    # Limpa qualquer estado anterior para evitar loop
-    if number in user_states:
-        print(f"   Limpando estado anterior: {user_states[number]}")
+    """Orienta sobre nova conta - APENAS ORIENTA, NÃO ENVIA CUPOM AINDA"""
+    print(f"📄 ORIENTANDO sobre NOVA CONTA para {number}")
     
     mensagem = f"""💡 *Entendi!*
 
@@ -303,72 +306,19 @@ Você pode criar uma *nova conta* com outro número ou email diferente e usar o 
 2. Cadastre com novo email/número
 3. Use o cupom na primeira compra
 
-Quer que eu te envie o cupom agora?"""
+💬 *Digite qualquer coisa quando estiver pronto para receber o cupom!* 👍"""
     
     send_text(number, mensagem)
     
-    # Aguarda 2 segundos
-    import time
-    time.sleep(2)
-    
-    result = send_buttons(
-        number=number,
-        text="📲 Quer receber o cupom para usar na nova conta?",
-        footer="Chatbot 99Food",
-        buttons=[
-            {"id": "QUERO_CUPOM_NOVA", "text": "✅ Sim, quero!"},
-            {"id": "NAO_QUERO_AGORA", "text": "⏰ Não, obrigado"}
-        ]
-    )
-    
-    if not result or result.get('status') == 'Pending':
-        send_text(number, "📲 Quer receber o cupom para usar na nova conta?\n\n1️⃣ - Sim, quero!\n2️⃣ - Não, obrigado")
-    
-    # Define estado APÓS enviar a mensagem
-    user_states[number] = "AGUARDANDO_NOVA_CONTA"
-    print(f"   ✅ Estado definido: AGUARDANDO_NOVA_CONTA")
+    # AGUARDA RESPOSTA DO USUÁRIO
+    user_states[number] = "AGUARDANDO_CONFIRMACAO_NOVA_CONTA"
+    print(f"   ✅ Estado definido: AGUARDANDO_CONFIRMACAO_NOVA_CONTA (aguardando confirmação)")
 
-def enviar_cupom_nova_conta(number):
-    """Envia cupom para quem vai criar nova conta e pergunta sobre tutorial"""
-    print(f"🎁 ENVIANDO CUPOM (nova conta) para {number}")
-    
-    mensagem = f"""🎁 *Aqui está seu cupom exclusivo!*
-
-🎫 *{CUPOM_DESCONTO}*
-
-💡 *Lembre-se:*
-• Crie uma nova conta primeiro
-• Use um email/número diferente
-• Cole o cupom antes de finalizar o pedido
-
-📹 *Quer um tutorial em vídeo* de como usar o cupom?"""
-    
-    send_text(number, mensagem)
-    
-    # Aguarda 2 segundos antes de enviar os botões
-    import time
-    time.sleep(2)
-    
-    result = send_buttons(
-        number=number,
-        text="📺 Quer assistir o tutorial em vídeo?",
-        footer="Chatbot 99Food",
-        buttons=[
-            {"id": "QUERO_TUTORIAL", "text": "✅ Sim, quero ver!"},
-            {"id": "NAO_PRECISA", "text": "❌ Não precisa"}
-        ]
-    )
-    
-    if not result or result.get('status') == 'Pending':
-        send_text(number, "📺 Quer assistir o tutorial em vídeo?\n\n1️⃣ - Sim, quero ver!\n2️⃣ - Não precisa")
-    
-    user_states[number] = "AGUARDANDO_QUER_TUTORIAL"
-    """Envia o cupom de desconto para o usuário"""
+def enviar_cupom_e_aguardar(number):
+    """Envia APENAS o cupom e aguarda confirmação para o tutorial"""
     print(f"🎁 ENVIANDO CUPOM para {number}")
     
-    mensagem = f"""🎁 *Seu cupom exclusivo!*
-
-🎉 Use o cupom abaixo no app 99Food:
+    mensagem = f"""🎁 *Aqui está seu cupom exclusivo!*
 
 🎫 *{CUPOM_DESCONTO}*
 
@@ -379,32 +329,22 @@ def enviar_cupom_nova_conta(number):
 4. Cole o cupom: *{CUPOM_DESCONTO}*
 5. Aproveite o desconto! 🚀
 
-📹 Quer ver um tutorial em vídeo? Vou te mostrar!"""
+📹 *Quer ver um tutorial em vídeo de como usar?*
+
+💬 *Digite qualquer coisa para ver o tutorial!* 👍"""
     
     send_text(number, mensagem)
     
-    # Aguarda 2 segundos antes de perguntar sobre o tutorial
-    import time
-    time.sleep(2)
-    
-    # Agora continua para o tutorial
-    enviar_tutorial(number)
+    # AGUARDA RESPOSTA DO USUÁRIO
+    user_states[number] = "AGUARDANDO_CONFIRMACAO_TUTORIAL"
+    print(f"   ✅ Estado definido: AGUARDANDO_CONFIRMACAO_TUTORIAL (aguardando confirmação)")
 
-def enviar_tutorial(number):
-    """Envia vídeo tutorial"""
+def enviar_tutorial_e_aguardar(number):
+    """Envia tutorial e aguarda resultado"""
+    print(f"📹 ENVIANDO TUTORIAL para {number}")
     
-    # Verifica se já está no estado correto para evitar loop
-    estado_atual = user_states.get(number)
-    if estado_atual == "AGUARDANDO_RESULTADO":
-        print(f"⚠️ BLOQUEADO - Já está aguardando resultado, não reenviando tutorial")
-        return
+    send_text(number, "📹 *Perfeito!*\n\nVou te mostrar como usar o cupom!")
     
-    print(f"📹 ENVIANDO TUTORIAL para {number} (estado atual: {estado_atual})")
-    
-    send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
-    
-    # Aguarda 2 segundos antes de enviar o vídeo
-    import time
     time.sleep(2)
     
     send_video(
@@ -413,7 +353,6 @@ def enviar_tutorial(number):
         caption="🎬 Tutorial: Como usar cupom no 99Food"
     )
     
-    # Aguarda 3 segundos antes de enviar os botões
     time.sleep(3)
     
     result = send_buttons(
@@ -428,13 +367,13 @@ def enviar_tutorial(number):
     )
     
     if not result or result.get('status') == 'Pending':
-        send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
+        send_text(number, "📺 Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
     
     user_states[number] = "AGUARDANDO_RESULTADO"
-    print(f"   ✅ Estado ATUALIZADO: {estado_atual} → AGUARDANDO_RESULTADO")
+    print(f"   ✅ Estado definido: AGUARDANDO_RESULTADO")
 
-def enviar_grupo(number):
-    """Envia link do grupo"""
+def enviar_grupo_final(number):
+    """Envia link do grupo e finaliza"""
     mensagem = f"""🎉 *Parabéns!*
 
 Você está aproveitando o 99Food! 🍕
@@ -452,30 +391,10 @@ Entre no grupo VIP:
 Aproveite! 🚀"""
     
     send_text(number, mensagem)
-    if number in user_states:
-        del user_states[number]
-
-def deu_certo_tutorial(number):
-    """Sucesso após tutorial"""
-    mensagem = f"""🎊 *Excelente!*
-
-Fico feliz que deu certo! 🙌
-
-💰 *Quer mais ofertas?*
-
-Entre no grupo VIP:
-• 🎁 Cupons exclusivos
-• 🔥 Ofertas relâmpago
-• 💸 Descontos até 70%
-
-👥 *Link:*
-{LINK_GRUPO_OFERTAS}
-
-Nos vemos lá! 🚀"""
     
-    send_text(number, mensagem)
     if number in user_states:
         del user_states[number]
+        print(f"   ✅ CONVERSA FINALIZADA - Estado removido para {number}")
 
 def nao_deu_certo_tutorial(number):
     """Dificuldade após tutorial"""
@@ -483,20 +402,22 @@ def nao_deu_certo_tutorial(number):
 
 📞 *Vamos te ajudar:*
 
-1️⃣ Assista novamente
+1️⃣ Assista novamente o vídeo
 2️⃣ Copie o cupom corretamente
-3️⃣ Cole antes de finalizar
+3️⃣ Cole antes de finalizar o pedido
 
-Me mande mensagem se precisar! 😊"""
+💬 *Me mande mensagem se precisar de ajuda!* 😊"""
     
     send_text(number, mensagem)
+    
     if number in user_states:
         del user_states[number]
+        print(f"   ✅ Estado removido para {number}")
 
 # ==================== PROCESSAMENTO ====================
 
 def processar_mensagem(number, message):
-    """Processa mensagens e gerencia fluxo"""
+    """Processa mensagens e gerencia fluxo COM CONFIRMAÇÕES"""
     
     estado_atual = user_states.get(number, "INICIO")
     msg = message.upper().strip()
@@ -509,14 +430,15 @@ def processar_mensagem(number, message):
     print(f"🔍 Mensagem normalizada: '{msg}'")
     print(f"{'='*60}")
     
-    # Se não tem estado ou é uma saudação inicial, inicia conversa
+    # INÍCIO DA CONVERSA
     if estado_atual == "INICIO" or number not in user_states:
         print("   → Ação: Iniciar conversa (primeiro contato)")
         iniciar_conversa(number)
         return
     
+    # TEM APP?
     elif estado_atual == "AGUARDANDO_TEM_APP":
-        print(f"   → Verificando resposta...")
+        print(f"   → Verificando resposta sobre ter app...")
         
         if "SIM" in msg or msg == "1":
             print("   → Ação: Usuário TEM o app")
@@ -532,19 +454,22 @@ def processar_mensagem(number, message):
             )
         return
     
+    # INSTALAÇÃO
     elif estado_atual == "AGUARDANDO_INSTALACAO":
         print(f"   → Verificando instalação...")
         
-        if "INSTALOU" in msg or msg == "1":
-            print("   → Ação: Usuário instalou")
+        if "INSTALOU" in msg or msg == "1" or "SIM" in msg:
+            print("   → Ação: Usuário INSTALOU o app")
             tem_app(number)
         else:
             print("   → Ação: Usuário vai instalar depois")
             send_text(number, "😊 Ok! Quando instalar, me mande uma mensagem! Até logo! 👋")
             if number in user_states:
                 del user_states[number]
+                print(f"   ✅ Estado removido para {number}")
         return
     
+    # JÁ USOU CUPOM?
     elif estado_atual == "AGUARDANDO_CUPOM":
         print(f"   → Verificando uso de cupom...")
         
@@ -552,11 +477,11 @@ def processar_mensagem(number, message):
             print("   → Ação: Usuário JÁ USOU cupom - orientando sobre nova conta")
             ja_usou_cupom(number)
         elif "NAO" in msg or "NÃO" in msg or msg == "2":
-            print("   → Ação: Usuário NUNCA USOU cupom")
-            enviar_tutorial(number)
+            print("   → Ação: Usuário NUNCA USOU cupom - enviando cupom")
+            enviar_cupom_e_aguardar(number)
         elif "QUERO" in msg or msg == "3":
-            print("   → Ação: Usuário QUER UM CUPOM")
-            enviar_cupom(number)
+            print("   → Ação: Usuário QUER UM CUPOM - enviando cupom")
+            enviar_cupom_e_aguardar(number)
         else:
             print("   → Ação: Resposta não reconhecida")
             send_text(
@@ -565,87 +490,29 @@ def processar_mensagem(number, message):
             )
         return
     
-    elif estado_atual == "AGUARDANDO_NOVA_CONTA":
-        print(f"   → Verificando se quer cupom para nova conta...")
-        
-        if "QUERO" in msg or msg == "1" or "SIM" in msg:
-            print("   → Ação: Usuário QUER cupom para nova conta")
-            enviar_cupom_nova_conta(number)
-        else:
-            print("   → Ação: Usuário não quer agora")
-            send_text(number, "😊 Tudo bem! Quando quiser criar a nova conta, me chame! Até logo! 👋")
-            if number in user_states:
-                del user_states[number]
-                print(f"   ✅ Estado removido para {number}")
+    # ⭐ NOVO: AGUARDA CONFIRMAÇÃO APÓS ORIENTAÇÃO DE NOVA CONTA
+    elif estado_atual == "AGUARDANDO_CONFIRMACAO_NOVA_CONTA":
+        print(f"   → Usuário CONFIRMOU que vai criar nova conta")
+        print(f"   → Ação: Enviando cupom agora")
+        enviar_cupom_e_aguardar(number)
         return
     
-    elif estado_atual == "AGUARDANDO_QUER_TUTORIAL":
-        print(f"   → Verificando se quer assistir tutorial (estado: {estado_atual})...")
-        
-        if "QUERO" in msg or msg == "1" or "SIM" in msg or "VER" in msg:
-            print("   → Ação: Usuário QUER ver o tutorial - ENVIANDO AGORA")
-            # NÃO chama função recursiva, envia diretamente aqui
-            send_text(number, "📹 *Perfeito!*\n\nVou te ensinar como usar cupom!")
-            
-            import time
-            time.sleep(2)
-            
-            send_video(
-                number=number,
-                video_url=VIDEO_TUTORIAL_URL,
-                caption="🎬 Tutorial: Como usar cupom no 99Food"
-            )
-            
-            time.sleep(3)
-            
-            result = send_buttons(
-                number=number,
-                text="📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?",
-                footer="Chatbot 99Food",
-                buttons=[
-                    {"id": "DEU_CERTO", "text": "✅ Sim, consegui!"},
-                    {"id": "NAO_DEU_CERTO", "text": "❌ Não consegui"},
-                    {"id": "DEPOIS", "text": "⏰ Vou tentar depois"}
-                ]
-            )
-            
-            if not result or result.get('status') == 'Pending':
-                send_text(number, "📺 Assistiu o tutorial?\n\n✅ Conseguiu usar o cupom?\n\n1️⃣ - Sim, consegui!\n2️⃣ - Não consegui\n3️⃣ - Vou tentar depois")
-            
-            user_states[number] = "AGUARDANDO_RESULTADO"
-            print(f"   ✅ Estado ATUALIZADO: AGUARDANDO_QUER_TUTORIAL → AGUARDANDO_RESULTADO")
-        else:
-            print("   → Ação: Usuário NÃO precisa do tutorial - enviando para grupo")
-            mensagem = f"""✅ *Perfeito!*
-
-Você já sabe como usar o cupom! 🎉
-
-💰 *Quer mais ofertas e cupons exclusivos?*
-
-Entre no nosso grupo VIP:
-• 🎁 Cupons diários
-• 🔥 Ofertas relâmpago
-• 💸 Descontos até 70%
-
-👥 *Link do grupo:*
-{LINK_GRUPO_OFERTAS}
-
-Aproveite! 🚀"""
-            
-            send_text(number, mensagem)
-            if number in user_states:
-                del user_states[number]
-                print(f"   ✅ Estado removido para {number} - CONVERSA FINALIZADA")
+    # ⭐ NOVO: AGUARDA CONFIRMAÇÃO APÓS ENVIO DE CUPOM
+    elif estado_atual == "AGUARDANDO_CONFIRMACAO_TUTORIAL":
+        print(f"   → Usuário QUER o tutorial")
+        print(f"   → Ação: Enviando tutorial agora")
+        enviar_tutorial_e_aguardar(number)
         return
     
+    # RESULTADO DO TUTORIAL
     elif estado_atual == "AGUARDANDO_RESULTADO":
         print(f"   → Verificando resultado do tutorial...")
         
-        if "DEU_CERTO" in msg or msg == "1" or "CONSEGUI" in msg:
-            print("   → Ação: Tutorial DEU CERTO")
-            deu_certo_tutorial(number)
+        if "DEU_CERTO" in msg or msg == "1" or "CONSEGUI" in msg or "SIM" in msg:
+            print("   → Ação: Tutorial DEU CERTO - enviando grupo")
+            enviar_grupo_final(number)
         elif "NAO_DEU_CERTO" in msg or msg == "2" or "NAO CONSEGUI" in msg or "NÃO CONSEGUI" in msg:
-            print("   → Ação: Tutorial NÃO DEU CERTO")
+            print("   → Ação: Tutorial NÃO DEU CERTO - enviando ajuda")
             nao_deu_certo_tutorial(number)
         else:
             print("   → Ação: Vai tentar depois")
@@ -655,8 +522,9 @@ Aproveite! 🚀"""
                 print(f"   ✅ Estado removido para {number}")
         return
     
+    # ESTADO DESCONHECIDO
     else:
-        print("   → Estado desconhecido, reiniciando")
+        print("   → Estado desconhecido, reiniciando conversa")
         iniciar_conversa(number)
 
 def processar_webhook(data):
@@ -826,13 +694,14 @@ def testar_cupom(number):
     # Simula estado para testar o fluxo do cupom
     user_states[number_clean] = "AGUARDANDO_CUPOM"
     
-    enviar_cupom(number_clean)
+    # Simula que usuário quer cupom
+    processar_mensagem(number_clean, "QUERO_CUPOM")
     
     return jsonify({
         "status": "Enviado",
         "number": number_clean,
         "cupom": CUPOM_DESCONTO,
-        "mensagem": "Verifique se recebeu o cupom e o tutorial!"
+        "mensagem": "Verifique se recebeu o cupom! Ele vai aguardar sua confirmação para enviar o tutorial."
     })
 
 @app.route('/test-ja-usou/<number>', methods=['GET'])
@@ -856,7 +725,7 @@ def testar_ja_usou(number):
         "status": "Iniciado",
         "number": number_clean,
         "fluxo": "ja_usou_cupom",
-        "mensagem": "Verifique se recebeu a orientação sobre criar nova conta!"
+        "mensagem": "Verifique se recebeu a orientação! Ele vai aguardar você confirmar antes de enviar o cupom."
     })
 
 @app.route('/check-video', methods=['GET'])
@@ -903,10 +772,12 @@ def resetar_usuario(number):
     number_clean = number.replace('+', '').replace('-', '').replace(' ', '').replace('@s.whatsapp.net', '')
     
     if number_clean in user_states:
+        estado_anterior = user_states[number_clean]
         del user_states[number_clean]
         return jsonify({
             "status": "resetado",
             "number": number_clean,
+            "estado_anterior": estado_anterior,
             "mensagem": "Estado do usuário foi resetado. Mande uma mensagem para começar de novo."
         })
     else:
@@ -921,6 +792,7 @@ def health():
     """Status do servidor"""
     return jsonify({
         "status": "online",
+        "version": "4.0-anti-loop-com-confirmacoes",
         "usuarios_ativos": len(user_states),
         "estados_usuarios": {k: v for k, v in user_states.items()},
         "api_token_configured": API_TOKEN != 'SEU_TOKEN_AQUI',
@@ -948,7 +820,7 @@ def home():
     return jsonify({
         "bot": "99Food Chatbot",
         "status": "online",
-        "versao": "3.4-loop-fix-final",
+        "versao": "4.0-anti-loop-com-confirmacoes",
         "usuarios_ativos": len(user_states),
         "rotas": {
             "webhook_principal": "/webhook",
@@ -972,30 +844,34 @@ def home():
             "cupom": CUPOM_DESCONTO
         },
         "fluxo_corrigido": {
-            "opcao_1_ja_usei": "Orienta a criar nova conta → Envia cupom → Pergunta se quer tutorial → Envia vídeo (se sim) → Grupo VIP [SEM LOOPS]",
-            "opcao_2_nunca_usei": "Envia tutorial direto → Pergunta se conseguiu → Grupo VIP",
-            "opcao_3_quero_cupom": "Envia cupom + tutorial automaticamente → Pergunta se conseguiu → Grupo VIP"
+            "opcao_1_ja_usei": "Orienta nova conta → AGUARDA CONFIRMAÇÃO → Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP [SEM LOOPS]",
+            "opcao_2_nunca_usei": "Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP",
+            "opcao_3_quero_cupom": "Envia cupom → AGUARDA CONFIRMAÇÃO → Envia tutorial → Resultado → Grupo VIP"
         },
         "protecoes_anti_loop": {
-            "verificacao_estados": "Funções verificam estado antes de executar",
-            "estados_unicos": "Cada estado é definido apenas uma vez",
-            "limpeza_automatica": "Estados são removidos ao finalizar",
+            "estados_confirmacao": "AGUARDANDO_CONFIRMACAO_NOVA_CONTA e AGUARDANDO_CONFIRMACAO_TUTORIAL",
+            "mensagens_claras": "Pede para usuário 'digitar qualquer coisa' para continuar",
+            "sem_auto_envio": "Não envia múltiplas mensagens seguidas",
             "logs_detalhados": "Todos os estados são logados para debug"
-        }
+        },
+        "novos_estados": [
+            "AGUARDANDO_CONFIRMACAO_NOVA_CONTA - Aguarda usuário confirmar que vai criar nova conta",
+            "AGUARDANDO_CONFIRMACAO_TUTORIAL - Aguarda usuário confirmar que quer ver o tutorial"
+        ]
     })
 
 # ==================== EXECUÇÃO ====================
 
 if __name__ == '__main__':
     print("""
-    ╔═══════════════════════════════════════════╗
-    🤖 CHATBOT 99FOOD - V3.4 LOOP FIX FINAL
-    ╚═══════════════════════════════════════════╝
+    ╔═══════════════════════════════════════════════════════════╗
+    🤖 CHATBOT 99FOOD - V4.0 ANTI-LOOP COM CONFIRMAÇÕES
+    ╚═══════════════════════════════════════════════════════════╝
     
-    ✅ Servidor rodando com DEBUG COMPLETO!
-    ✅ LOOPS ELIMINADOS - Código inline no processamento
-    ✅ Sem chamadas recursivas de funções
-    ✅ Estados validados antes de cada ação
+    ✅ Servidor rodando com PROTEÇÃO ANTI-LOOP!
+    ✅ AGUARDA confirmação do usuário entre etapas
+    ✅ Sem envio de múltiplas mensagens seguidas
+    ✅ Estados de confirmação implementados
     
     📡 Endpoints disponíveis:
     • POST /webhook - Recebe mensagens (principal)
@@ -1019,38 +895,50 @@ if __name__ == '__main__':
     
     🎁 Cupom: """ + CUPOM_DESCONTO + """
     
-    📝 Fluxo CORRIGIDO (100% SEM LOOPS):
+    📝 FLUXO CORRIGIDO (100% SEM LOOPS):
     
     1️⃣ *JÁ USEI CUPOM:*
        Estado: AGUARDANDO_CUPOM
-       → Orienta nova conta (1x)
-       Estado: AGUARDANDO_NOVA_CONTA
-       → Pergunta se quer cupom (1x)
-       → Envia cupom (1x)
-       Estado: AGUARDANDO_QUER_TUTORIAL
-       → Pergunta se quer tutorial (1x)
-       → Se SIM: Envia vídeo INLINE (sem função recursiva)
+       ↓ Usuário responde "JÁ USEI"
+       ↓ Envia orientação sobre criar nova conta (1x)
+       Estado: AGUARDANDO_CONFIRMACAO_NOVA_CONTA ⏸️
+       ↓ AGUARDA usuário digitar qualquer coisa
+       ↓ Envia cupom (1x)
+       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
+       ↓ AGUARDA usuário digitar qualquer coisa
+       ↓ Envia tutorial (1x)
        Estado: AGUARDANDO_RESULTADO
-       → Grupo VIP + Remove estado
+       ↓ Envia grupo VIP + Remove estado
     
     2️⃣ *NUNCA USEI:*
-       → Tutorial direto (1x)
+       Estado: AGUARDANDO_CUPOM
+       ↓ Usuário responde "NUNCA USEI"
+       ↓ Envia cupom (1x)
+       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
+       ↓ AGUARDA usuário digitar qualquer coisa
+       ↓ Envia tutorial (1x)
        Estado: AGUARDANDO_RESULTADO
-       → Grupo VIP + Remove estado
+       ↓ Envia grupo VIP + Remove estado
     
     3️⃣ *QUERO CUPOM:*
-       → Cupom + Tutorial automático (1x cada)
+       Estado: AGUARDANDO_CUPOM
+       ↓ Usuário responde "QUERO CUPOM"
+       ↓ Envia cupom (1x)
+       Estado: AGUARDANDO_CONFIRMACAO_TUTORIAL ⏸️
+       ↓ AGUARDA usuário digitar qualquer coisa
+       ↓ Envia tutorial (1x)
        Estado: AGUARDANDO_RESULTADO
-       → Grupo VIP + Remove estado
+       ↓ Envia grupo VIP + Remove estado
     
-    🔒 PROTEÇÃO ANTI-LOOP V2:
-    ✅ Código do tutorial executado INLINE (não chama função)
-    ✅ Estados verificados ANTES de cada ação
-    ✅ Logs mostram mudanças de estado em tempo real
+    🛡️ PROTEÇÃO ANTI-LOOP V4.0:
+    ✅ Mensagens pedem explicitamente: "Digite qualquer coisa para continuar"
+    ✅ Bot para e aguarda resposta do usuário
+    ✅ Estados de confirmação adicionados
+    ✅ Não envia mensagens em sequência
+    ✅ Logs mostram pausas entre etapas
     ✅ Estados limpos ao finalizar conversa
-    ✅ Mensagens enviadas apenas 1x por estado
     
-    ╚═══════════════════════════════════════════╝
+    ╚═══════════════════════════════════════════════════════════╝
     """)
     
     app.run(host='0.0.0.0', port=PORT, debug=False)
