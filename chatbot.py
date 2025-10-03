@@ -278,7 +278,7 @@ def iniciar_conversa(number):
     
     result = send_buttons(
         number=number,
-        text="👋 Olá! Bem-vindo ao Cupom Premiado!\n\n🍕 Você já tem o app da 99 Food instalado?",
+        text="👋 Olá! Bem-vindo ao Cupom Premiado! Vamos te ajudar a resgatar o seu cupom de 70% de desconto!\n\n🍕 Você já tem o app da 99 Food instalado?",
         footer="Chatbot 99Food",
         buttons=[
             {"id": "SIM", "text": "✅ Sim, já tenho"},
