@@ -290,7 +290,7 @@ def iniciar_conversa(number):
         print("Botoes falharam, enviando texto simples...")
         send_text(
             number,
-            "👋 Olá! Bem-vindo ao Cupom Premiado!\n\nResponda apenas com números\n\n🍕 Você já tem o app da 99 Food instalado?\n\n*Responda:*\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
+            "👋 Olá! Bem-vindo ao Cupom Premiado! Você acabou de ganhar um cupom de 70% de Desconto no 99Food! Vamos te ajudar a resgatar.\n\nResponda apenas com números\n\n🍕 Você já tem o app da 99 Food instalado?\n\n*Responda:*\n1️⃣ - Sim, já tenho\n2️⃣ - Não, preciso instalar"
         )
     
     user_states[number] = "AGUARDANDO_TEM_APP"
