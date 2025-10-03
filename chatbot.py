@@ -380,6 +380,9 @@ def enviar_cupom_e_aguardar(number):
 
 🎫 *{CUPOM_DESCONTO}*
 
+Para ter acesso a outras ofertas, entre no nosso grupo VIP!
+chat.whatsapp.com/CoQl7hC1PFm90IEiBHEj94
+
 💡 *Como usar:*
 1. Abra o app 99Food
 2. Escolha seu pedido
